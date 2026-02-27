@@ -75,7 +75,7 @@ Non-engineering prerequisites. Run in parallel with pipeline work; owned outside
 | CFS/OFS regression test (KI-003 guard) | Feb 27, 2026 | `test_fs_type_values_and_distribution` |
 | Beneish output schema contract | Feb 27, 2026 | `REQUIRED_BENEISH_COLUMNS`, `TestBeneishOutputSchema` |
 | XBRL crosswalk CSV | Feb 27, 2026 | `00_Reference/dart_xbrl_crosswalk.csv` |
-| Full test suite (25 tests) | Feb 27, 2026 | AC1–AC7 (7) + invariant tests (18) |
+| Full test suite (44 tests) | Feb 27, 2026 | AC1–AC7 (7) + invariant tests (37) |
 | Cloud infrastructure (R2 + Oracle Cloud Free Tier VPS) | Feb 27, 2026 | R2 upload confirmed; VPS running at 168.107.21.26; PyKRX geo-block on VPS (KRX returns 0 tickers from data center IP) |
 | GitHub public release | Feb 27, 2026 | https://github.com/pon00050/kr-forensic-finance — 57 files, initial commit |
 

@@ -203,6 +203,8 @@ Use industry group level (4-digit codes, 25 groups) as the default. Eight groups
 | `wics_sector` | str | Yes | |
 | `ksic_code` | str | Yes | 3-digit KSIC Rev.10 string |
 | `krx_sector` | str | Yes | |
+| `fs_type_shift` | bool | No | `True` if `fs_type` changes between any two consecutive years for this company (CFS→OFS or OFS→CFS); set in `transform.py` |
+| `extraction_date` | str | No | ISO 8601 date string (e.g., `"2026-02-27"`); set by `transform.py` at run time |
 
 ---
 
@@ -232,6 +234,8 @@ Use industry group level (4-digit codes, 25 groups) as the default. Eight groups
 | `wics_sector` | str | Yes | |
 | `sector_percentile` | float | Yes | M-Score percentile within same WICS industry group; null if peer group has < 10 companies in that year |
 | `dart_link` | str | No | Direct URL to DART 사업보고서 filing for year T |
+| `risk_tier` | str | No | `Critical` / `High` / `Medium` / `Low` — Beneish-only tier in Phase 1 (see PR3) |
+| `extraction_date` | str | No | ISO 8601 date string; set by `beneish_screen.py` at run time |
 
 ---
 

@@ -42,7 +42,7 @@
 | `01_Data/processed/company_financials.parquet` | 7,042 | One row per company-year; 180 financial-sector rows excluded |
 | `03_Analysis/beneish_scores.parquet` | 5,357 | Score periods 2020–2023; 2019 dropped (no prior-year ratios) |
 | `03_Analysis/beneish_scores.csv` | 5,357 | Same data, CSV for inspection |
-| `03_Analysis/top50_spot_check.csv` | 50 | Top 50 highest M-Score companies for manual spot-check |
+| `tests/top50_spot_check.csv` | 50 | Top 50 highest M-Score companies for manual spot-check |
 
 ---
 
@@ -60,7 +60,7 @@
 
 ## Test Results
 
-**25 tests pass — 18 invariant (test_pipeline_invariants.py) + 7 AC (test_acceptance_criteria.py).**
+**44 tests pass — 37 invariant (test_pipeline_invariants.py) + 7 AC (test_acceptance_criteria.py).**
 
 ```
 pytest tests/ -v
@@ -68,20 +68,22 @@ pytest tests/ -v
 
 | Suite | Tests | Result |
 |---|---|---|
-| `test_pipeline_invariants.py` | Schema + formula + KSIC regression | ✅ All pass |
-| `test_acceptance_criteria.py` | AC1–AC7 | ✅ All pass |
+| `test_pipeline_invariants.py` | Schema + formula + KSIC regression | ✅ All pass (37 tests) |
+| `test_acceptance_criteria.py` | AC1–AC7 | ✅ All pass (7 tests) |
 
-### Acceptance Criteria Summary
+### Data Quality Checks (Run-Level)
 
-| AC | Description | Result |
+*These are run-level data quality checks distinct from the automated test suite ACs in `test_acceptance_criteria.py`.*
+
+| DQ | Description | Result |
 |---|---|---|
-| AC1 | `company_financials.parquet` exists and has ≥ 5,000 rows | ✅ Pass (7,042 rows) |
-| AC2 | No company-year duplicates (corp_code + year unique) | ✅ Pass |
-| AC3 | Financial sector companies excluded (KSIC 640–669 / 68200) | ✅ Pass (180 excluded) |
-| AC4 | `beneish_scores.parquet` exists and has ≥ 3,000 rows | ✅ Pass (5,357 rows) |
-| AC5 | M-Score range is plausible (−20 to +10 for 99th percentile) | ✅ Pass |
-| AC6 | KSIC join rate ≥ 95% | ✅ Pass (100%) |
-| AC7 | `top50_spot_check.csv` generated with 50 rows | ✅ Pass |
+| DQ1 | `company_financials.parquet` exists and has ≥ 5,000 rows | ✅ Pass (7,042 rows) |
+| DQ2 | No company-year duplicates (corp_code + year unique) | ✅ Pass |
+| DQ3 | Financial sector companies excluded (KSIC 640–669 / 68200) | ✅ Pass (180 excluded) |
+| DQ4 | `beneish_scores.parquet` exists and has ≥ 3,000 rows | ✅ Pass (5,357 rows) |
+| DQ5 | M-Score range is plausible (−20 to +10 for 99th percentile) | ✅ Pass |
+| DQ6 | KSIC join rate ≥ 95% | ✅ Pass (100%) |
+| DQ7 | `tests/top50_spot_check.csv` generated with 50 rows | ✅ Pass |
 
 ---
 

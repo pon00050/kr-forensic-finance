@@ -255,7 +255,7 @@ def _compute_beneish(df_fin, np, pd, date):
     # Also null out if T-1 year has no data (no lag available — year is first year)
     df.loc[df["revenue_l"].isna(), "m_score"] = np.nan
 
-    df["flag"] = df["m_score"] > -1.78
+    df["flag"] = df["m_score"].notna() & (df["m_score"] > -1.78)
 
     # High false-positive risk sectors: biotech/pharma (G3510) and medical devices (G3520)
     fp_sectors = {"G3510", "G3520"}

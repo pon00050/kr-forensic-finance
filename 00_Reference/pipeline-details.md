@@ -21,9 +21,6 @@ python 02_Pipeline/pipeline.py --market KOSDAQ --start 2019 --end 2023
 # Single stage only
 python 02_Pipeline/pipeline.py --market KOSDAQ --start 2019 --end 2023 --stage dart
 
-# Skip optional sources
-python 02_Pipeline/pipeline.py --market KOSDAQ --start 2019 --end 2023 --skip-seibro --skip-kftc
-
 # Beneish analysis (run after pipeline)
 python 03_Analysis/beneish_screen.py   # outputs 03_Analysis/beneish_scores.csv
 ```
@@ -37,10 +34,8 @@ python 03_Analysis/beneish_screen.py   # outputs 03_Analysis/beneish_scores.csv
 | `--sample N` | Limit to first N companies (smoke testing); propagates end-to-end: extract → transform |
 | `--max-minutes N` | Hard deadline guard; exits cleanly after N minutes |
 | `--sleep S` | Override default inter-request sleep in seconds (default 0.5; use 0.1 for smoke tests) |
-| `--force` | Re-download cached files (company_list.parquet, wics.parquet, etc.) |
+| `--force` | Extract stage: re-fetch raw files (company_list.parquet, wics.parquet, etc.). Transform stage: delete and rebuild `company_financials.parquet`. |
 | `--stage dart\|transform` | Run a single stage only |
-| `--skip-seibro` | Skip SEIBRO scraping |
-| `--skip-kftc` | Skip KFTC download |
 
 ---
 
@@ -53,7 +48,9 @@ Writes per-company parquet files to `01_Data/raw/financials/` and lookup tables 
 
 `extract_dart.py` and `transform.py` are not meant to be called directly — use
 `pipeline.py`, which handles both in the correct order and propagates `--sample`,
-`--start`, and `--end` flags consistently across both stages.
+`--start`, and `--end` flags consistently across both stages. Note: sub-stage options
+`company-list`, `financials`, and `sector` are `extract_dart.py --stage` options for
+direct script use only, not `pipeline.py --stage` options.
 
 **Stage: transform** (`transform.py`)
 Reads all raw files from `01_Data/raw/`, joins KSIC and WICS sector data, normalizes

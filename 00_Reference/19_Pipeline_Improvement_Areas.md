@@ -62,7 +62,7 @@ whether to let it run or abort.
 
 ### H3: No exponential backoff on DART Error 020 (rate limit)
 
-**Status:** Not yet fixed.
+**Status:** ✅ Complete (Feb 2026). Implemented as `_finstate_with_backoff()` in `extract_dart.py`.
 
 When DART returns Error 020 (rate limit exceeded), `OpenDartReader` raises an exception that
 the current code catches and logs as a debug message. The company's parquet is written as
@@ -81,7 +81,7 @@ because the marker file exists.
 
 ### M1: `run_summary.json` is always overwritten on resume
 
-**Status:** Not yet fixed.
+**Status:** ✅ Complete (Feb 2026). Implemented as `_merge_run_summaries()` in `pipeline.py`.
 
 If a run is interrupted and resumed, the summary JSON reflects only the resumed batch — losing
 counts from prior partial runs. `full_data` and `partial_data` lists are incomplete.
@@ -103,7 +103,7 @@ historical), so pinning is aspirational — document the limitation clearly.
 
 ### M3: Silent CFS→OFS shift not flagged
 
-**Status:** Not yet fixed.
+**Status:** ✅ Complete (Feb 2026). Implemented in `transform.py` as `fs_type_shift` boolean column (note: column named `fs_type_shift`, not `_fs_type_changed` as suggested here).
 
 `fs_type` is recorded per company-year, but `transform.py` does not validate that a company
 uses the same `fs_type` across all years. A company that filed CFS in 2019–2021 and switched
