@@ -104,6 +104,8 @@ For running the pipeline without storing data files on your laptop:
 
 **R2 is optional.** All scripts fall back to local `01_Data/processed/` when R2 credentials are absent. Existing local dev and smoke test workflows are unchanged.
 
+> **Tip:** If you just want to run the pipeline and explore the data, you don't need any of the above — simply clone the repo on your laptop and run `pipeline.py` directly. The R2 + VPS setup is only useful if you want to keep large data files off your local machine or run the pipeline unattended on a server.
+
 ## Data Not Committed
 
 `01_Data/` is gitignored. Users must run the pipeline to generate data. The pipeline downloads directly from OpenDART and KRX public APIs — no data files are distributed with this repository.
