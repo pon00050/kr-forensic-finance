@@ -22,7 +22,7 @@ This project does not investigate specific targets. It builds the infrastructure
 ```bash
 git clone https://github.com/pon00050/kr-forensic-finance
 cd kr-forensic-finance
-uv sync                        # or: pip install -r requirements.txt
+uv sync                        # uv is the sole package manager; no requirements.txt
 cp .env.example .env           # add your DART API key (free: opendart.fss.or.kr)
 python 02_Pipeline/pipeline.py --market KOSDAQ --start 2019 --end 2023
 python 03_Analysis/beneish_screen.py
@@ -87,7 +87,7 @@ TESTS
 - `beneish_screen.py` can be re-run at any time after the pipeline without re-running the pipeline — it reads from the already-processed parquet.
 - The pipeline is resumable. Re-running `pipeline.py` skips raw files that already exist on disk; only missing company-years are fetched.
 
-## Production Setup (Cloudflare R2 + Hetzner VPS)
+## Production Setup (Cloudflare R2 + Oracle Cloud Free Tier)
 
 For running the pipeline without storing data files on your laptop:
 
@@ -99,7 +99,7 @@ For running the pipeline without storing data files on your laptop:
    R2_SECRET_ACCESS_KEY=...
    R2_BUCKET=kr-forensic-finance
    ```
-3. Provision a [Hetzner CX22](https://www.hetzner.com/cloud) VPS (~$4.50/month, 2 vCPU / 4 GB RAM), clone the repo, run the pipeline via SSH — processed parquet files upload to R2 automatically
+3. Provision an [Oracle Cloud Always Free](https://www.oracle.com/cloud/free/) VPS ($0/month — no expiry), clone the repo, run the pipeline via SSH — processed parquet files upload to R2 automatically. See `00_Reference/24_VPS_Setup_Procedure.md` for step-by-step instructions. **Known issue:** PyKRX returns 0 tickers from Oracle Cloud data center IPs (KRX geo-block) — run the full pipeline from a laptop on a residential IP; use the VPS only for R2-read analysis tasks.
 4. On your laptop: with R2 credentials in `.env`, `beneish_screen.py` reads directly from R2 — no local `01_Data/` files needed
 
 **R2 is optional.** All scripts fall back to local `01_Data/processed/` when R2 credentials are absent. Existing local dev and smoke test workflows are unchanged.
