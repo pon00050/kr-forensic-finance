@@ -130,7 +130,7 @@ For smoke tests with `--sample 5`, these add ~5 seconds of unnecessary delay per
 
 ### L2: No `--force` flag in `transform.py`
 
-**Status:** Not yet fixed.
+**Status:** ✅ Complete (Feb 2026). `--force` deletes and rebuilds `company_financials.parquet`. Implemented at `transform.py:569-573` (argparse) and `transform.py:546-552` (delete logic).
 
 `transform.py` always writes `company_financials.parquet`, but there is no explicit `--force`
 flag in its CLI. Reprocessing requires manually deleting the output file.
@@ -170,7 +170,7 @@ with `try: from tqdm import tqdm` so the fallback is the existing log-based loop
 
 ### DQ2: No extraction timestamp
 
-**Status:** Not yet implemented.
+**Status:** ✅ Complete (Feb 2026). `extraction_date` column present in both output parquets. Implemented at `transform.py:471` and `beneish_screen.py:277`.
 
 Neither `company_financials.parquet` nor `beneish_scores.parquet` contains a timestamp recording when the data was extracted. A file written in February 2026 and re-read in 2027 has no internal record of its vintage.
 

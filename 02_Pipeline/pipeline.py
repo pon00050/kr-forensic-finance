@@ -94,6 +94,7 @@ def run_stage_dart(
     sample: int | None = None,
     max_minutes: float | None = None,
     sleep: float | None = None,
+    wics_date: str | None = None,
 ) -> None:
     """
     Run DART extraction stages.
@@ -109,6 +110,10 @@ def run_stage_dart(
 
     if sleep is not None:
         ed._apply_sleep_override(sleep)
+
+    if wics_date is not None:
+        ed.WICS_SNAPSHOT_DATE = wics_date
+        log.info("WICS snapshot date pinned to %s (--wics-date override)", wics_date)
 
     if corp_code:
         # Single-company test mode
@@ -176,6 +181,7 @@ def run(
     sample: int | None = None,
     max_minutes: float | None = None,
     sleep: float | None = None,
+    wics_date: str | None = None,
 ) -> None:
     """
     Run the Phase 1 pipeline.
@@ -192,6 +198,7 @@ def run(
         run_stage_dart(
             market, start, end, stage=None, corp_code=corp_code,
             force=force, sample=sample, max_minutes=max_minutes, sleep=sleep,
+            wics_date=wics_date,
         )
         return
 
@@ -204,6 +211,7 @@ def run(
     run_stage_dart(
         market, start, end, stage=None, corp_code=corp_code,
         force=force, sample=sample, max_minutes=max_minutes, sleep=sleep,
+        wics_date=wics_date,
     )
 
     log.info("=== Stage: transform ===")
@@ -298,6 +306,13 @@ Examples:
         help="Override inter-request sleep (default: 0.5s/0.3s/1.0s per stage). "
              "Use --sleep 0.1 for test runs with --sample.",
     )
+    parser.add_argument(
+        "--wics-date",
+        default=None,
+        metavar="YYYYMMDD",
+        dest="wics_date",
+        help="Pin WICS snapshot date. Note: WICS only serves recent dates.",
+    )
 
     args = parser.parse_args()
     run(
@@ -310,4 +325,5 @@ Examples:
         sample=args.sample,
         max_minutes=args.max_minutes,
         sleep=args.sleep,
+        wics_date=args.wics_date,
     )

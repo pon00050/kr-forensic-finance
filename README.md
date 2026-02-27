@@ -1,5 +1,9 @@
 # kr-forensic-finance
 
+![Python](https://img.shields.io/badge/python-3.11+-blue)
+![Tests](https://img.shields.io/badge/tests-44%20passing-brightgreen)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 Public infrastructure for systematic anomaly screening across Korean listed companies — built entirely on open data.
 
 공개된 데이터만으로 한국 상장사의 이상 징후를 체계적으로 스크리닝하는 오픈 인프라입니다.
@@ -133,9 +137,36 @@ pytest tests/test_acceptance_criteria.py -v   # After full pipeline + beneish_sc
 
 See `00_Reference/21_Test_Suite.md` for per-test documentation.
 
+### Output Schemas
+
+**`beneish_scores.csv`** (main deliverable, `03_Analysis/`)
+
+| Column | Description |
+|---|---|
+| `corp_code` | DART 8-digit company identifier |
+| `ticker` | KRX 6-digit ticker |
+| `company_name` | Korean company name |
+| `year_t` | Fiscal year (score period; e.g. 2023 uses 2022–2023 data) |
+| `m_score` | Beneish M-Score (8-variable; threshold: −1.78) |
+| `flag` | `True` if M-Score > −1.78 (possible manipulator) |
+| `risk_tier` | `"high"` / `"medium"` / `"low"` based on score range |
+| `high_fp_risk` | `True` for biotech/pharma (structural false positive risk) |
+| `wics_sector` | WICS sector name (e.g. "건강관리", "IT") |
+| `sector_percentile` | Company's M-Score percentile within its WICS sector |
+| `dart_link` | Direct URL to company's annual report on DART |
+| `extraction_date` | Date this row's data was extracted from DART |
+
+Full schema spec: [`00_Reference/17_MVP_Requirements.md §4.6`](00_Reference/17_MVP_Requirements.md)
+
+**`top50_spot_check.csv`** (`tests/`) — Top 50 companies by M-Score with `corp_code`, `ticker`, `company_name`, `year_t`, `m_score`, `flag`.
+
 ### Further Reading
 
-`00_Reference/` has architecture notes, API findings, and methodology docs. See [`reference-index.md`](00_Reference/reference-index.md) for the full index. Start with [`04_Technical_Architecture.md`](00_Reference/04_Technical_Architecture.md) and [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
+`00_Reference/` has architecture notes, API findings, and methodology docs. See [`reference-index.md`](00_Reference/reference-index.md) for the full index.
+
+- **[Technical Architecture](00_Reference/04_Technical_Architecture.md)** — pipeline diagram, unified schema, four milestones, tech stack
+- **[Research Findings](00_Reference/18_Research_Findings.md)** — verified API behaviors, confirmed bugs, workarounds
+- **[Pipeline Details](00_Reference/pipeline-details.md)** — all CLI flags, stage descriptions, resumability
 
 For remote execution with Cloudflare R2 storage, see [`24_VPS_Setup_Procedure.md`](00_Reference/24_VPS_Setup_Procedure.md). R2 is optional — all scripts fall back to local files.
 

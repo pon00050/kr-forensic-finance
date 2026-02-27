@@ -46,6 +46,12 @@ from pykrx import stock
 
 load_dotenv()
 
+try:
+    from tqdm import tqdm as _tqdm
+    _TQDM_AVAILABLE = True
+except ImportError:
+    _TQDM_AVAILABLE = False
+
 # Windows Unicode fix: OpenDartReader's finstate_all() has a print() that emits Korean
 # text (e.g. "연결제무제표"). On Windows the default sys.stdout is cp1252, so that
 # print() raises UnicodeEncodeError, which the pipeline's exception handler silently
@@ -150,6 +156,9 @@ def _apply_sleep_override(seconds: float) -> None:
     log.info("--sleep %.2f: overriding all sleep constants", seconds)
 
 
+# M2: WICS serves recent dates only — no historical snapshots.
+# --wics-date YYYYMMDD overrides for within-session reproducibility.
+#
 # WICS API only serves recent dates — confirmed empirically Feb 2026:
 #   20231229, 20241231 return empty (invalid TRD_DT epoch).
 #   20260226, 20250131 return full data.
@@ -398,7 +407,10 @@ def fetch_all_financials(
         "errors": [],
     }
 
-    for i, row in enumerate(companies.itertuples(), 1):
+    company_list = list(companies.itertuples())
+    company_iter = _tqdm(company_list, desc="Financials", unit="co") \
+        if _TQDM_AVAILABLE else company_list
+    for i, row in enumerate(company_iter, 1):
         if deadline is not None and time.monotonic() > deadline:
             log.warning(
                 "--max-minutes %.1f exceeded at company %d/%d. Stopping cleanly.",
@@ -553,7 +565,10 @@ def fetch_ksic(
     rows: list[dict] = []
     total = len(companies)
 
-    for i, row in enumerate(companies.itertuples(), 1):
+    ksic_list = list(companies.itertuples())
+    ksic_iter = _tqdm(ksic_list, desc="KSIC", unit="co") \
+        if _TQDM_AVAILABLE else ksic_list
+    for i, row in enumerate(ksic_iter, 1):
         corp_code = str(row.corp_code)
 
         if corp_code in existing and not force:
@@ -614,8 +629,14 @@ def run(
     force: bool = False,
     sample: int | None = None,
     max_minutes: float | None = None,
+    wics_date: str | None = None,
 ) -> None:
     """Run all stages or a single named stage."""
+    if wics_date is not None:
+        global WICS_SNAPSHOT_DATE
+        WICS_SNAPSHOT_DATE = wics_date
+        log.info("WICS snapshot date pinned to %s (--wics-date override)", wics_date)
+
     if stage == "company-list":
         fetch_company_list(market, force=force)
 
@@ -747,6 +768,13 @@ Examples:
         metavar="SECONDS",
         help="Override all sleep constants (default: 0.5/0.3/1.0). Use 0.1 for test runs.",
     )
+    parser.add_argument(
+        "--wics-date",
+        default=None,
+        metavar="YYYYMMDD",
+        dest="wics_date",
+        help="Pin WICS snapshot date. Note: WICS only serves recent dates.",
+    )
     args = parser.parse_args()
     if args.sleep is not None:
         _apply_sleep_override(args.sleep)
@@ -759,4 +787,5 @@ Examples:
         force=args.force,
         sample=args.sample,
         max_minutes=args.max_minutes,
+        wics_date=args.wics_date,
     )

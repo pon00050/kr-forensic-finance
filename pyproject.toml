@@ -11,6 +11,7 @@ dependencies = [
     "marimo",           # analysis notebook format (interactive UI deferred; scripts run as plain Python)
     "plotly",           # charts in notebook
     "requests",         # WICS API calls
+    "tqdm",             # optional progress bars in extract_dart (graceful fallback if absent)
     "python-dotenv",
 
     # Cloud storage (optional — R2 upload + DuckDB remote reads)
