@@ -152,8 +152,14 @@ def _chart_year_trend(df, pd, px):
 def _chart_components(df, pd, px):
     _components = ["dsri", "gmi", "aqi", "sgi", "depi", "sgai", "lvgi", "tata"]
     _labels = {
-        "dsri": "DSRI", "gmi": "GMI", "aqi": "AQI", "sgi": "SGI",
-        "depi": "DEPI", "sgai": "SGAI", "lvgi": "LVGI", "tata": "TATA",
+        "dsri": "DSRI<br>Receivables growth",
+        "gmi": "GMI<br>Gross margin trend",
+        "aqi": "AQI<br>Asset quality",
+        "sgi": "SGI<br>Sales growth",
+        "depi": "DEPI<br>Depreciation rate",
+        "sgai": "SGAI<br>SG&A growth",
+        "lvgi": "LVGI<br>Leverage change",
+        "tata": "TATA<br>Accruals vs. cash",
     }
 
     _rows = []
