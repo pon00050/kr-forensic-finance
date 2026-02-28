@@ -239,6 +239,7 @@ def _export_html(df, fig_distribution, fig_risk_sector, fig_year_trend, fig_comp
 <head>
   <meta charset="utf-8">
   <title>KOSDAQ Beneish M-Score Screen — Phase 1 Results</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     body {{ font-family: sans-serif; max-width: 1200px; margin: auto; padding: 2rem; }}
     h1 {{ color: #333; }}
