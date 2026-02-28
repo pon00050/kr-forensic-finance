@@ -208,6 +208,9 @@ def _chart_heatmap(df, pd, px):
 
     # Order rows by average flag rate descending
     _pivot = _pivot.loc[_pivot.mean(axis=1).sort_values(ascending=False).index]
+    # Convert year columns to strings so px.imshow treats them as categorical,
+    # preventing spurious half-year tick values (2020.5, 2021.5, …).
+    _pivot.columns = [str(c) for c in _pivot.columns]
 
     fig_heatmap = px.imshow(
         _pivot,
