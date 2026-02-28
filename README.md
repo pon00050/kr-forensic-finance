@@ -32,6 +32,7 @@ This project builds that infrastructure layer — so that researchers, journalis
 | `beneish_scores.parquet` | `01_Data/processed/` | All 8 M-Score components, sector percentiles, CFS/OFS provenance (5,357 rows) | M-Score 8개 구성 요소, 섹터 백분위, CFS/OFS 출처 (5,357행) |
 | `company_financials.parquet` | `01_Data/processed/` | 5-year financials, all KOSDAQ companies (7,042 rows) | 5개년 재무제표, 코스닥 전 상장사 (7,042행) |
 | `dart_xbrl_crosswalk.csv` | `00_Reference/` | XBRL element → variable mapping; audit trail | XBRL 요소 → 재무 변수 매핑; 감사 추적 |
+| `beneish_viz.html` | `03_Analysis/` | Self-contained visual summary of Phase 1 results (5 Plotly charts) | Phase 1 결과 시각적 요약 — 5개 Plotly 차트, 단독 실행 가능 HTML |
 
 Planned (not yet implemented): CB/BW timelines, disclosure timing anomalies, officer network graph.
 
@@ -108,7 +109,9 @@ kr-forensic-finance/
 │   ├── transform.py           raw → company_financials.parquet
 │   └── ...                    extract_krx, extract_seibro, extract_kftc
 ├── 03_Analysis/
-│   └── beneish_screen.py      Milestone 1 — Beneish M-Score
+│   ├── beneish_screen.py      Milestone 1 — Beneish M-Score
+│   ├── beneish_viz.py         Visual summary — 5 Plotly charts → beneish_viz.html
+│   └── beneish_viz.html       Generated output — open in any browser
 └── tests/
     ├── test_pipeline_invariants.py   Self-contained (run any time)
     └── test_acceptance_criteria.py   End-to-end (run after pipeline)
