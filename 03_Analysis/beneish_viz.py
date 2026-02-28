@@ -40,15 +40,23 @@ def _chart_distribution(df, px, go):
     }
     _tier_order = ["Low", "Medium", "High", "Critical"]
 
+    import numpy as _np
+    # Filter to finite values; dataset has inf/-inf outliers from division by near-zero assets.
+    # Clip display range to [-10, 5] — covers >99.9% of observations; extreme outliers excluded.
+    _plot_df = df[df["m_score"].notna() & _np.isfinite(df["m_score"])].copy()
+    _n_plotted = len(_plot_df)
+    _n_clipped = (_plot_df["m_score"] < -10).sum() + (_plot_df["m_score"] > 5).sum()
+
     fig_distribution = px.histogram(
-        df[df["m_score"].notna()],
+        _plot_df,
         x="m_score",
         color="risk_tier",
         nbins=80,
         color_discrete_map=_color_map,
         category_orders={"risk_tier": _tier_order},
-        title=f"M-Score Distribution — KOSDAQ 2020–2023 (n={df['m_score'].notna().sum():,})",
+        title=f"M-Score Distribution — KOSDAQ 2020–2023 (n={_n_plotted:,}; {_n_clipped} extreme outliers excluded)",
         labels={"m_score": "Beneish M-Score", "risk_tier": "Risk Tier"},
+        range_x=[-10, 5],
     )
     fig_distribution.add_vline(
         x=-1.78,
@@ -226,9 +234,13 @@ def _export_html(df, fig_distribution, fig_risk_sector, fig_year_trend, fig_comp
     ]
 
     _html_parts = []
-    for _fig, _title in _charts:
+    for _i, (_fig, _title) in enumerate(_charts):
+        # First chart: let Plotly inject its own version-specific CDN <script> tag,
+        # ensuring the JS version matches the binary data format Python generated.
+        # Subsequent charts: False (script already loaded).
+        _js = "cdn" if _i == 0 else False
         _html_parts.append(f"<h2>{_title}</h2>")
-        _html_parts.append(_fig.to_html(full_html=False, include_plotlyjs=False))
+        _html_parts.append(_fig.to_html(full_html=False, include_plotlyjs=_js))
 
     _n_companies = df["corp_code"].nunique()
     _n_rows = len(df)
@@ -239,7 +251,6 @@ def _export_html(df, fig_distribution, fig_risk_sector, fig_year_trend, fig_comp
 <head>
   <meta charset="utf-8">
   <title>KOSDAQ Beneish M-Score Screen — Phase 1 Results</title>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     body {{ font-family: sans-serif; max-width: 1200px; margin: auto; padding: 2rem; }}
     h1 {{ color: #333; }}
