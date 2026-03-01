@@ -205,6 +205,16 @@ Use industry group level (4-digit codes, 25 groups) as the default. Eight groups
 | `krx_sector` | str | Yes | |
 | `fs_type_shift` | bool | No | `True` if `fs_type` changes between any two consecutive years for this company (CFS→OFS or OFS→CFS); set in `transform.py` |
 | `extraction_date` | str | No | ISO 8601 date string (e.g., `"2026-02-27"`); set by `transform.py` at run time |
+| `match_method_receivables` | str | Yes | `exact_id` \| `korean_substring` \| null — extraction path used by transform.py |
+| `match_method_revenue` | str | Yes | Same |
+| `match_method_cogs` | str | Yes | Null if `expense_method='nature'` |
+| `match_method_sga` | str | Yes | Null if `expense_method='nature'` |
+| `match_method_ppe` | str | Yes | Same as receivables pattern |
+| `match_method_depreciation` | str | Yes | Same |
+| `match_method_total_assets` | str | Yes | Same |
+| `match_method_lt_debt` | str | Yes | Same |
+| `match_method_net_income` | str | Yes | Same |
+| `match_method_cfo` | str | Yes | Same |
 
 ---
 
@@ -522,6 +532,8 @@ dependencies = [
 **Demand source:** Litigation support (#4), academic researchers (#13)
 **Why:** Expert reports and peer-reviewed papers must characterize whether each financial variable came from an exact XBRL element ID match or a Korean `account_nm` substring fallback. The `dart_xbrl_crosswalk.csv` documents the possible chain; this column records what actually occurred per company-year observation.
 
+**Status: ✅ Complete (Mar 2, 2026).** `_extract_field()` and `_extract_lt_debt()` return `(value, method)` tuples. `_extract_company_year()` writes `match_method_*` for all 10 financial variables. `company_financials.parquet` has 34 columns. Test passes GREEN.
+
 **Acceptance criterion:** `company_financials.parquet` contains per-variable match-method columns (e.g., `match_method_receivables`) with values `exact_id` | `korean_substring` | `null`. Populated by `transform.py` during extraction; no pipeline re-run required to add the column structure.
 
 ---
@@ -559,6 +571,8 @@ Document that this tier is Beneish-only until Phase 2+ flags (CB/BW, timing anom
 
 **Demand source:** M&A due diligence (#1), institutional investors (#3), D&O insurance (#8), academic researchers (#13)
 **Why:** KOSPI companies (~900) are the primary targets for M&A, institutional investment, and D&O insurance. Most academic studies require the full KRX universe, not KOSDAQ only.
+
+**Status: ✅ Partial (Mar 2, 2026).** `sector_percentile` groupby now includes `"market"` key in `beneish_screen.py`. AC5 test parametrized via `PIPELINE_MARKET` env var. A full KOSPI pipeline run has not been executed — acceptance criterion not yet verified for KOSPI rows.
 
 **Acceptance criterion:** Pipeline `--market KOSPI` run completes; `beneish_scores.parquet` contains rows with `market = 'KOSPI'`; all Phase 1 AC1–AC7 pass for KOSPI rows; `sector_percentile` computed against KOSPI-specific peer groups (not pooled with KOSDAQ).
 

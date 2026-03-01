@@ -91,7 +91,10 @@ to a JSONL log instead of overwriting a single JSON file.
 
 ### M2: WICS snapshot uses dynamic "today" date
 
-**Status:** Not yet fixed.
+**Status:** ✅ Complete (Mar 2, 2026). Implemented as `_last_trading_day_of_year(year)` in
+`extract_dart.py`; `fetch_wics(year=N)` overrides `snapshot_date` with the result;
+`pipeline.py` passes `year=end` to `fetch_wics`. WICS API still serves recent dates only
+(historical pinning always falls back to year-end) — limitation documented in code.
 
 `_find_wics_snapshot_date()` probes backwards from `datetime.today()`. For a multi-day run,
 each session may use a different snapshot date — introducing inconsistency. WICS membership
@@ -140,7 +143,9 @@ flag in its CLI. Reprocessing requires manually deleting the output file.
 
 ### L3: No tqdm progress bar
 
-**Status:** Not yet fixed.
+**Status:** ✅ Complete (Feb 28, 2026). `tqdm` imported with try/except guard in
+`extract_dart.py:49–53`; progress bar applied at `extract_dart.py:411–412`. `tqdm` listed
+in `pyproject.toml`. Fallback to plain log loop when tqdm unavailable.
 
 Log lines at INFO level work but are noisy in notebooks and hard to parse visually.
 `tqdm` is already in many data-science environments.
@@ -154,7 +159,10 @@ with `try: from tqdm import tqdm` so the fallback is the existing log-based loop
 
 ### DQ1: No data lineage column (`match_method_*`)
 
-**Status:** Not yet implemented.
+**Status:** ✅ Complete (Mar 2, 2026). `_extract_field()` and `_extract_lt_debt()` now return
+`(value, method)` tuples. `_extract_company_year()` writes `match_method_{field}` for all 10
+financial variables. `company_financials.parquet` regenerated with 34 columns (was 24).
+Acceptance criterion (test_match_method_columns_exist) passes GREEN.
 
 `transform.py` applies a priority-order extraction chain for each financial variable (exact XBRL element ID → secondary element ID → Korean substring fallback). The actual path taken is not recorded in the output parquet — only the final extracted value.
 

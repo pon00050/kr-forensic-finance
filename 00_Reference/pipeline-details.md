@@ -35,7 +35,7 @@ python 03_Analysis/beneish_screen.py   # outputs 03_Analysis/beneish_scores.csv
 | `--max-minutes N` | Hard deadline guard; exits cleanly after N minutes |
 | `--sleep S` | Override default inter-request sleep in seconds (default 0.5; use 0.1 for smoke tests) |
 | `--force` | Extract stage: re-fetch raw files (company_list.parquet, wics.parquet, etc.). Transform stage: delete and rebuild `company_financials.parquet`. |
-| `--stage dart\|transform` | Run a single stage only |
+| `--stage dart\|transform\|cb_bw` | Run a single stage only (`cb_bw` = Phase 2: CB/BW events + price/volume + officer holdings) |
 
 ---
 
@@ -55,6 +55,18 @@ direct script use only, not `pipeline.py --stage` options.
 **Stage: transform** (`transform.py`)
 Reads all raw files from `01_Data/raw/`, joins KSIC and WICS sector data, normalizes
 schemas, and writes `01_Data/processed/company_financials.parquet` (Phase 1).
+
+**Stage: cb_bw** (`extract_cb_bw.py` → `extract_price_volume.py` → `extract_officer_holdings.py`)
+Fetches Phase 2 data in sequence:
+1. CB/BW issuance events from DART DS005 endpoints → `01_Data/processed/cb_bw_events.parquet`
+2. OHLCV ±60 trading days per event from PyKRX → `01_Data/processed/price_volume.parquet`
+   (**laptop-only**: PyKRX geo-blocked on VPS/data-center IPs)
+3. Officer stock change reports from DART elestock → `01_Data/processed/officer_holdings.parquet`
+
+Run command:
+```bash
+python 02_Pipeline/pipeline.py --stage cb_bw --sample 10 --sleep 0.5
+```
 
 ---
 

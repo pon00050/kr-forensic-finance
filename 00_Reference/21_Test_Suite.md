@@ -34,9 +34,9 @@ tests/
 
 ## `test_pipeline_invariants.py`
 
-**Can run at any time — no pipeline data required.**
+**Can run at any time — no pipeline data required (except Categories 10–11 schema fixtures).**
 
-Three test categories, each targeting a distinct failure mode.
+Seven test categories, each targeting a distinct failure mode. Categories 1–3 are original Phase 1 guards; Categories 10–13 were added in Session 2 (Mar 2, 2026).
 
 ---
 
@@ -134,6 +134,51 @@ Constructs a synthetic two-year DataFrame for one fictitious company entirely in
 
 ---
 
+---
+
+### Category 10 — WICS Snapshot Date Pinning (`TestWicsSnapshotDate`)
+
+**What it guards:** `_last_trading_day_of_year(year)` returns a valid YYYYMMDD string and
+`fetch_wics(year=N)` pins the snapshot to that date.
+
+**Tests:** `test_last_trading_day_of_year_returns_yyyymmdd`,
+`test_last_trading_day_of_year_fallback`, `test_fetch_wics_records_snapshot_date_in_parquet`.
+All mock `requests.get` — no network required.
+
+---
+
+### Category 11 — match_method Lineage (`TestMatchMethodLineage`)
+
+**What it guards:** `company_financials.parquet` carries `match_method_*` columns with values
+`exact_id` | `korean_substring` | null. `_extract_field()` returns a `(value, method)` tuple.
+
+**Tests:** `test_match_method_columns_exist` (requires parquet on disk),
+`test_match_method_values_valid` (requires parquet), `test_extract_field_returns_tuple`
+(pure unit test — no data needed).
+
+---
+
+### Category 12 — CB/BW Schema Contracts (`TestCbBwSchema`)
+
+**What it guards:** `cb_bw_events.parquet`, `price_volume.parquet`, `officer_holdings.parquet`
+have required columns, parseable dates, no duplicate events. Parse-logic unit tests verify
+`_parse_dart_response()` handles DART status 013 (no data) and valid responses.
+
+**Skip behavior:** All fixture-based tests skip (not fail) when Phase 2 parquets don't exist —
+7 tests currently skipping. Parse unit tests run without data.
+
+---
+
+### Category 13 — Sector Percentile Market Isolation (`TestSectorPercentileMarket`)
+
+**What it guards:** After PR4, `sector_percentile` is computed within `(sector, year, market)`
+groups — KOSDAQ companies are not ranked against KOSPI peers.
+
+**Test:** `test_sector_percentile_isolates_market` — pure in-memory; constructs synthetic
+mixed-market DataFrame and asserts KOSDAQ/KOSPI percentiles are computed independently.
+
+---
+
 ## `test_acceptance_criteria.py`
 
 **Requires pipeline output on disk (or R2 credentials). Run after the full pipeline and `beneish_screen.py`.**
@@ -152,7 +197,7 @@ If processed files are not present and R2 credentials are not configured, tests 
 | `test_ac2_sector_enrichment` | ≥80% of rows have `wics_sector_code` | 80% | WICS source ceiling is ~85%; see `KNOWN_ISSUES.md` KI-001 |
 | `test_ac3_score_computability` | ≥70% of company-years have non-null `m_score` | 70% | Guards against systematic lag/join failure |
 | `test_ac4_financial_exclusion` | Zero financial-sector rows in `company_financials` | 0 | Hard requirement — financial cos structurally inflate M-Score |
-| `test_ac5_market_purity` | Zero KOSPI tickers in output | 0 | Phase 1 is KOSDAQ only |
+| `test_ac5_market_purity` | Zero KOSPI tickers in output | 0 | Phase 1 is KOSDAQ only. Now parametrized via `PIPELINE_MARKET` env var (default: `KOSDAQ`); when `PIPELINE_MARKET=KOSPI`, asserts no KOSDAQ rows instead. |
 | `test_ac6_expense_method` | `expense_method` 100% populated; nature rows have GMI=SGAI=1.0 | 100% / exact | Guards neutral-substitution logic for nature-method companies |
 | `test_ac7_reproducibility` | `beneish_scores.parquet` exists; md5 recorded | file exists | Presence is a proxy; true reproducibility requires a manual re-run |
 
@@ -198,5 +243,10 @@ When adding a new test, place it in the file that matches its scope:
 - **Self-contained, no data dependency** → `test_pipeline_invariants.py`
 - **End-to-end, requires pipeline output** → `test_acceptance_criteria.py`
 - **New pipeline stage (Phase 2+)** → create `tests/test_<stage>_invariants.py` following the same three-category pattern
+
+> **Note:** The "new pipeline stage → new test file" guideline applies when a stage is fully
+> implemented and producing real output. For scaffold-phase tests (schema contracts on
+> parquets not yet produced), adding to `test_pipeline_invariants.py` with `pytest.skip`
+> guards is acceptable. Create `tests/test_cb_bw_invariants.py` when Phase 2 is complete.
 
 Follow the existing naming convention: `TestKsicSamplePreservation`, `TestSchemaContracts`, `TestBeneishFormula` — class per logical group, `test_` prefix per assertion. Include the expected value derivation in comments for any numeric assertion that isn't self-evident.
