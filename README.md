@@ -32,9 +32,9 @@ This project builds that infrastructure layer — so that researchers, journalis
 | `beneish_scores.parquet` | `01_Data/processed/` | All 8 M-Score components, sector percentiles, CFS/OFS provenance (5,357 rows) | M-Score 8개 구성 요소, 섹터 백분위, CFS/OFS 출처 (5,357행) |
 | `company_financials.parquet` | `01_Data/processed/` | 5-year financials, all KOSDAQ companies (7,042 rows) | 5개년 재무제표, 코스닥 전 상장사 (7,042행) |
 | `dart_xbrl_crosswalk.csv` | `00_Reference/` | XBRL element → variable mapping; audit trail | XBRL 요소 → 재무 변수 매핑; 감사 추적 |
-| `beneish_viz.html` | `03_Analysis/` | Self-contained visual summary of Phase 1 results (5 Plotly charts) | Phase 1 결과 시각적 요약 — 5개 Plotly 차트, 단독 실행 가능 HTML |
+| [`beneish_viz.html` ↗](https://raw.githack.com/pon00050/kr-forensic-finance/main/03_Analysis/beneish_viz.html) | `03_Analysis/` | Self-contained visual summary of Phase 1 results (5 Plotly charts) | Phase 1 결과 시각적 요약 — 5개 Plotly 차트, 단독 실행 가능 HTML |
 
-**Visual summary (no Python required):** [`03_Analysis/beneish_viz.html`](03_Analysis/beneish_viz.html) — download and open in any browser for an interactive overview of the Phase 1 results.
+**Visual summary (no Python required):** [beneish_viz.html — Phase 1 결과 보기](https://raw.githack.com/pon00050/kr-forensic-finance/main/03_Analysis/beneish_viz.html) — interactive Plotly charts, no Python required. / Python 없이 바로 보기.
 
 **Open analytical questions from Phase 1:** [`00_Reference/27_Phase1_Analytical_Research_Questions.md`](00_Reference/27_Phase1_Analytical_Research_Questions.md) — four investigative threads pursuable with existing data, no pipeline advancement required: component co-occurrence patterns among Critical flags, genuine vs. structurally-elevated sectors, repeat offenders across years, and CFS/OFS basis effects on flag distribution.
 
