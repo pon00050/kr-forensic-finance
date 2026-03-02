@@ -63,18 +63,16 @@ def build_corp_ticker_map(force: bool = False) -> pd.DataFrame:
     companies = pd.read_parquet(src)
 
     # Drop rows without a stock code (unlisted subsidiaries, funds, etc.)
-    companies = companies[
-        companies["stock_code"].notna() & (companies["stock_code"].str.strip() != "")
-    ].copy()
-
-    # Normalise corp_code to 8-digit zero-padded string
-    companies["corp_code"] = companies["corp_code"].astype(str).str.zfill(8)
+    # stock_code is already a stripped string from extract_dart.py
+    listed = companies[
+        companies["stock_code"].notna() & (companies["stock_code"] != "")
+    ]
 
     df = pd.DataFrame({
-        "corp_code": companies["corp_code"],
-        "ticker": companies["stock_code"].astype(str).str.strip(),
-        "corp_name": companies["corp_name"],
-        "market": companies["market"] if "market" in companies.columns else None,
+        "corp_code": listed["corp_code"].astype(str).str.zfill(8),
+        "ticker": listed["stock_code"],
+        "corp_name": listed["corp_name"],
+        "market": listed["market"],
         "effective_from": None,
         "effective_to": None,
     })
