@@ -48,9 +48,9 @@ docs_cache/
 # Repo quality assessment and internal action items
 00_Reference/25_GitHub_Repo_Assessment.md
 
-# Internal planning and personal documents — excluded from public repo
-00_Reference/00_Career_Connection.md
-00_Reference/00_Feature_Analysis.md
+# Business intelligence and internal planning — NEVER commit to public repo
+# Pattern: 00_Reference/00_*.md is the convention for private docs
+00_Reference/00_*.md
 00_Reference/12_Business_Model_Research.md
 00_Reference/13_Monetization_Research.md
 00_Reference/stakeholder_dossiers/

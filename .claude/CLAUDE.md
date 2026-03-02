@@ -149,6 +149,45 @@ python 03_Analysis/beneish_screen.py
 
 ---
 
+## Business Intelligence Privacy
+
+This is a **public GitHub repository**. Technical infrastructure docs are intentionally
+public. Business intelligence documents — monetization strategy, stakeholder analysis,
+competitive positioning, career connection, and raw research — are **private** and must
+never be committed to git.
+
+**Private content locations (all gitignored):**
+- `00_Reference/00_*.md` — career and feature analysis docs (prefix `00_`)
+- `00_Reference/12_Business_Model_Research.md`, `00_Reference/13_Monetization_Research.md`
+- `00_Reference/stakeholder_dossiers/` — all contents
+- `00_Reference/research/` — raw research and brainstorm transcripts
+- `00_Reference/25_GitHub_Repo_Assessment.md` — internal repo quality notes
+
+**Rules for Claude Code:**
+1. **Never create** files containing monetization, pricing, stakeholder, competitive,
+   or career-strategy content in any tracked location.
+2. **New private docs** must go in `00_Reference/research/` or use the `00_` prefix
+   in `00_Reference/`. Confirm the file is gitignored before writing.
+3. **Before any commit**, verify that staged files do not contain business intelligence.
+   If a staged file references pricing, revenue, stakeholders, or monetization strategy,
+   warn the user and do not proceed until confirmed.
+4. **Reference docs that summarize public methodology** (e.g., Beneish components,
+   regulatory framework) are fine to commit. The test is: would this content give a
+   competitor or stakeholder insight into the project's business strategy? If yes, it
+   is private.
+
+**If a private file is accidentally committed:**
+```bash
+pip install git-filter-repo
+git filter-repo --path <file-path> --invert-paths
+git push --force-with-lease
+```
+This rewrites history to remove the file from all commits, then force-pushes the
+clean history. `--force-with-lease` is safer than `--force` — it fails if someone
+else has pushed in the meantime.
+
+---
+
 ## Known Issues
 
 See `BUGS.md` (project root) for documented bugs with investigation paths and fixes.
