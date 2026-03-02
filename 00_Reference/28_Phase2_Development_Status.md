@@ -6,8 +6,8 @@
 >               `04_Technical_Architecture.md` (Milestone 2 spec),
 >               `22_Phase1_Completion_Record.md` (Phase 1 baseline)
 
-*Created: March 2, 2026. Phase 2 scaffold complete; 5 gaps remain before analysis script
-can produce real output.*
+*Created: March 2, 2026. Phase 2 scaffold complete; 3 gaps remain before analysis script
+can produce real output. (Gaps 3 and 4 completed Mar 2, 2026.)*
 
 ---
 
@@ -32,7 +32,7 @@ in `cb_bw_timelines.py` will never fire until SEIBRO is added.
 
 ---
 
-## 5 Remaining Gaps (Priority Order)
+## 3 Remaining Gaps (Priority Order)
 
 ### Gap 1 — Actually run the pipeline (unblocks 7 skipping tests)
 
@@ -75,51 +75,15 @@ an unusable shell page. Playwright or Selenium required.
 
 ---
 
-### Gap 3 — Apply Phase 2 scoping filter
+### Gap 3 — ✅ COMPLETED: Apply Phase 2 scoping filter
 
-**What:** `extract_cb_bw.py` currently iterates all 1,702 KOSDAQ companies. Per `17_MVP_Requirements.md §5.1`, Phase 2 runs on:
-- Phase 1 top 100 companies by M-Score (any year), AND
-- All KOSDAQ companies with ≥1 CB/BW issuance on DART since 2018
-
-This narrows the target to approximately 200–400 companies.
-
-**Why it matters:** Running all 1,702 companies × 2 endpoints = ~3,404 DART API calls for
-CB/BW alone (plus elestock calls). The scoping filter cuts this to ~400–800 calls.
-
-**Implementation:** Before the main loop in `fetch_cb_bw_events()`:
-1. Load `beneish_scores.parquet` → get top-100 corp_codes by M-Score (any year)
-2. Run a first pass of DS005 for all companies (accept all returns) → companies with `len > 0`
-3. Union the two sets → filtered `corp_codes`
-
-Or: implement as a pre-filter flag `--scoped` that applies the Phase 2 universe restriction.
+See "Completed Gaps" section below.
 
 ---
 
-### Gap 4 — Build `corp_ticker_map.parquet`
+### Gap 4 — ✅ COMPLETED: Build `corp_ticker_map.parquet`
 
-**What:** `cb_bw_timelines.py` line 74 references `processed/corp_ticker_map.parquet`:
-```python
-df_map = pd.read_parquet(processed / "corp_ticker_map.parquet") if (...).exists() else pd.DataFrame()
-```
-
-If this file is absent, `map_lookup` is empty and all events are silently skipped
-(no ticker → no price window → no anomaly scoring). This is a silent total failure mode.
-
-**Current behavior:** Falls back to empty DataFrame; all corp_code → ticker lookups fail;
-zero rows scored. Analysis script produces empty output with no error.
-
-**Minimum viable fix (Phase 2):** Generate `corp_ticker_map.parquet` from `company_list.parquet`
-(which already has corp_code + stock_code). New file: `02_Pipeline/extract_corp_ticker_map.py`.
-
-Schema per `04_Technical_Architecture.md`:
-```
-(corp_code, ticker, corp_name, market, effective_from, effective_to)
-```
-
-For Phase 2 minimum: effective_from/effective_to can be null (no history tracking yet).
-
-**New file:** `02_Pipeline/extract_corp_ticker_map.py` (simple — just reads company_list.parquet
-and writes the renamed/reformatted version to processed/).
+See "Completed Gaps" section below.
 
 ---
 
@@ -143,13 +107,36 @@ download. New table: `disclosures.parquet`.
 
 ---
 
+## Completed Gaps
+
+### ✅ Gap 3 — Phase 2 scoping filter (completed Mar 2, 2026)
+
+`extract_cb_bw.py` now has `--scoped` flag support via `build_scoped_universe()`:
+- Loads `beneish_scores.parquet` → top-N corp_codes by M-Score (any year)
+- Unions with all corp_codes that returned CB/BW events in the discovery pass
+- Narrows universe from ~1,702 to ~200–400 companies
+
+CLI: `python pipeline.py --stage cb_bw --scoped --top-n 100`
+
+### ✅ Gap 4 — `corp_ticker_map.parquet` (completed Mar 2, 2026)
+
+`02_Pipeline/extract_corp_ticker_map.py` builds the mapping from `company_list.parquet`.
+Schema: `(corp_code, ticker, corp_name, market, effective_from, effective_to)`.
+`effective_from`/`effective_to` are null for Phase 2 (no history tracking yet).
+Wired into `run_stage_cb_bw()` in `pipeline.py`.
+
+**Unblocked by Gap 4:** Flags 3 and 4 in `cb_bw_timelines.py` can now fire once
+Gap 1 (actual pipeline run) produces the parquets.
+
+---
+
 ## Flags 3 and 4 — Ready to Fire
 
 Flags 3 (volume surge) and 4 (officer holdings decrease) in `cb_bw_timelines.py` will
-fire as soon as Gaps 1 and 4 are resolved:
+fire as soon as Gap 1 is resolved (Gap 4 is now complete):
 
-- **Flag 3** needs: `price_volume.parquet` (Gap 1) + corp → ticker mapping (Gap 4)
-- **Flag 4** needs: `officer_holdings.parquet` (Gap 1) + corp → ticker mapping (Gap 4)
+- **Flag 3** needs: `price_volume.parquet` (Gap 1) — corp → ticker mapping now available
+- **Flag 4** needs: `officer_holdings.parquet` (Gap 1) — corp → ticker mapping now available
 
 Flags 1 and 2 need Gap 2 (SEIBRO) in addition.
 
@@ -162,6 +149,8 @@ Flags 1 and 2 need Gap 2 (SEIBRO) in addition.
 | AC-P2-1 | ≥99% of active KOSDAQ tickers have complete OHLCV 2018–2024 | ❌ Not yet run |
 | AC-P2-2 | Pipeline captures ≥95% of disclosed CB/BW events | ❌ Not yet run |
 | AC-P2-3 | `timing_anomalies.csv` contains ≥20 events with >5% price move before disclosure | ❌ Not implemented (Gap 5) |
+
+*Note: Gap 4 (corp_ticker_map) now complete — Flags 3 and 4 unblocked pending Gap 1 (actual run).*
 
 ---
 

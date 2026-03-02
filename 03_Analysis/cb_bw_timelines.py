@@ -120,7 +120,7 @@ def _score_events(df_cb, df_pv_clean, df_oh, df_map, pd, np, json):
         if not issue_date_raw:
             continue
 
-        issue_date = pd.to_datetime(str(issue_date_raw)[:8], format="%Y%m%d", errors="coerce")
+        issue_date = pd.to_datetime(issue_date_raw, errors="coerce")
         if pd.isna(issue_date):
             continue
 
@@ -212,8 +212,8 @@ def _score_events(df_cb, df_pv_clean, df_oh, df_map, pd, np, json):
             pre_ex = df_corp_oh[df_corp_oh["date"] <= issue_date]
             if not post_ex.empty and not pre_ex.empty:
                 try:
-                    pre_shares = pd.to_numeric(pre_ex["shares"], errors="coerce").sum()
-                    post_shares = pd.to_numeric(post_ex["shares"], errors="coerce").sum()
+                    pre_shares = pd.to_numeric(pre_ex["change_shares"], errors="coerce").sum()
+                    post_shares = pd.to_numeric(post_ex["change_shares"], errors="coerce").sum()
                     if pre_shares > 0 and post_shares < pre_shares * 0.95:
                         holdings_flag = True
                 except Exception:

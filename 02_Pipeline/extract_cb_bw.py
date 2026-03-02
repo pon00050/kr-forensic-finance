@@ -53,6 +53,10 @@ DART_BW_URL = "https://opendart.fss.or.kr/api/bdwtIsDecsn.json"
 SLEEP_DEFAULT = 0.5
 
 
+def _norm_corp_code(code) -> str:
+    return str(code).zfill(8)
+
+
 def _dart_api_key() -> str:
     key = os.getenv("DART_API_KEY", "")
     if not key or key == "your_opendart_api_key_here":
@@ -139,14 +143,68 @@ def _fetch_with_backoff(
     raise last_exc  # type: ignore[misc]
 
 
+def build_scoped_universe(
+    scores_path: Path,
+    cb_bw_corp_codes: set[str],
+    top_n: int = 100,
+) -> set[str]:
+    """
+    Return the Phase 2 scoped universe: union of
+      (a) top_n companies by M-Score (highest = most suspicious) from beneish_scores, and
+      (b) all companies in cb_bw_corp_codes (have ≥1 CB/BW event on DART).
+
+    Parameters
+    ----------
+    scores_path      : path to beneish_scores.parquet
+    cb_bw_corp_codes : corp_codes that returned ≥1 CB/BW row from DART (may be empty)
+    top_n            : number of highest M-Score companies to include (default 100)
+
+    Returns
+    -------
+    Set of corp_code strings.
+    """
+    if not scores_path.exists():
+        log.warning("beneish_scores.parquet not found at %s — scoping filter disabled", scores_path)
+        return set()
+
+    scores = pd.read_parquet(scores_path)
+    if "m_score" not in scores.columns or "corp_code" not in scores.columns:
+        log.warning("beneish_scores.parquet missing required columns — scoping filter disabled")
+        return set()
+
+    top_codes = (
+        scores.dropna(subset=["m_score"])
+        .sort_values("m_score", ascending=False)
+        .head(top_n)["corp_code"]
+        .astype(str)
+        .str.zfill(8)
+        .tolist()
+    )
+
+    universe = set(top_codes) | {_norm_corp_code(c) for c in cb_bw_corp_codes}
+    log.info(
+        "Scoped universe: %d top-M-Score + %d CB/BW companies = %d unique",
+        len(top_codes), len(cb_bw_corp_codes), len(universe),
+    )
+    return universe
+
+
 def fetch_cb_bw_events(
     force: bool = False,
     sample: int | None = None,
     sleep: float = SLEEP_DEFAULT,
     max_minutes: float | None = None,
+    scoped: bool = False,
+    top_n: int = 100,
 ) -> pd.DataFrame:
     """
-    Fetch CB/BW issuance events for all companies in company_list.parquet.
+    Fetch CB/BW issuance events for companies in company_list.parquet.
+
+    When scoped=True, applies the Phase 2 universe filter:
+      - Top top_n companies by M-Score (from beneish_scores.parquet), UNION
+      - All companies with ≥1 CB/BW event on DART (first-pass discovery).
+    This reduces ~1,700 companies to ~200–400 and saves ~2,000 DART API calls.
+
     Writes 01_Data/processed/cb_bw_events.parquet.
     """
     out = PROCESSED / "cb_bw_events.parquet"
@@ -171,6 +229,45 @@ def fetch_cb_bw_events(
         if max_minutes else None
     )
 
+    # --- Phase 2 scoping filter (Gap 3) -----------------------------------
+    # When --scoped is active, first do a CB/BW discovery pass over ALL companies.
+    # Responses are cached so the main loop can reuse them — no company is called twice.
+    # discovery_cache: (corp_code, bond_type) → parsed rows list
+    discovery_cache: dict[tuple[str, str], list[dict]] = {}
+
+    if scoped:
+        log.info("--scoped: running CB/BW discovery pass to identify active issuers...")
+        discovery_codes: set[str] = set()
+        for row in companies.itertuples():
+            corp_code = _norm_corp_code(row.corp_code)
+            for bond_type, url in [("CB", DART_CB_URL), ("BW", DART_BW_URL)]:
+                try:
+                    data = _fetch_with_backoff(
+                        url, params={"crtfc_key": api_key, "corp_code": corp_code}
+                    )
+                    rows_found = _parse_dart_response(data, corp_code=corp_code, bond_type=bond_type)
+                    discovery_cache[(corp_code, bond_type)] = rows_found
+                    if rows_found:
+                        discovery_codes.add(corp_code)
+                except Exception as exc:
+                    log.warning("Discovery error %s for %s: %s", bond_type, corp_code, exc)
+                time.sleep(sleep)
+
+        scoped_universe = build_scoped_universe(
+            scores_path=PROCESSED / "beneish_scores.parquet",
+            cb_bw_corp_codes=discovery_codes,
+            top_n=top_n,
+        )
+        if scoped_universe:
+            original_count = len(companies)
+            companies = companies[
+                companies["corp_code"].astype(str).str.zfill(8).isin(scoped_universe)
+            ].copy()
+            log.info("--scoped: filtered to %d companies (was %d)", len(companies), original_count)
+        else:
+            log.warning("--scoped: scoped universe empty — proceeding with full list")
+    # ----------------------------------------------------------------------
+
     all_rows: list[dict] = []
     total = len(companies)
 
@@ -179,11 +276,15 @@ def fetch_cb_bw_events(
             log.info("--max-minutes reached; stopping early at company %d/%d", i, total)
             break
 
-        corp_code = str(row.corp_code).zfill(8)
+        corp_code = _norm_corp_code(row.corp_code)
         if i % 100 == 0 or i == 1:
             log.info("CB/BW fetch %d/%d (corp_code=%s)", i, total, corp_code)
 
         for bond_type, url in [("CB", DART_CB_URL), ("BW", DART_BW_URL)]:
+            # Reuse cached response from discovery pass if available.
+            if (corp_code, bond_type) in discovery_cache:
+                all_rows.extend(discovery_cache[(corp_code, bond_type)])
+                continue
             try:
                 data = _fetch_with_backoff(
                     url, params={"crtfc_key": api_key, "corp_code": corp_code}
@@ -212,6 +313,14 @@ def main():
     parser.add_argument("--sample", type=int, default=None)
     parser.add_argument("--sleep", type=float, default=SLEEP_DEFAULT)
     parser.add_argument("--max-minutes", type=float, default=None)
+    parser.add_argument(
+        "--scoped", action="store_true",
+        help="Apply Phase 2 scoping filter: top-N M-Score union CB/BW issuers (~200-400 companies)"
+    )
+    parser.add_argument(
+        "--top-n", type=int, default=100,
+        help="Number of top M-Score companies to include in scoped universe (default: 100)"
+    )
     args = parser.parse_args()
 
     fetch_cb_bw_events(
@@ -219,6 +328,8 @@ def main():
         sample=args.sample,
         sleep=args.sleep,
         max_minutes=args.max_minutes,
+        scoped=args.scoped,
+        top_n=args.top_n,
     )
 
 

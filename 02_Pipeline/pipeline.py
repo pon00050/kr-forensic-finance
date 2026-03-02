@@ -169,6 +169,8 @@ def run_stage_cb_bw(
     sample: int | None = None,
     sleep: float | None = None,
     max_minutes: float | None = None,
+    scoped: bool = False,
+    top_n: int = 100,
 ) -> None:
     """Phase 2: fetch CB/BW events → price/volume → officer holdings."""
     import extract_cb_bw as ecb
@@ -177,8 +179,13 @@ def run_stage_cb_bw(
 
     _sleep = sleep if sleep is not None else 0.5
 
+    import extract_corp_ticker_map as ectm
+
+    log.info("=== Stage: cb_bw (corp_ticker_map) ===")
+    ectm.build_corp_ticker_map(force=force)
+
     log.info("=== Stage: cb_bw (CB/BW events) ===")
-    ecb.fetch_cb_bw_events(force=force, sample=sample, sleep=_sleep, max_minutes=max_minutes)
+    ecb.fetch_cb_bw_events(force=force, sample=sample, sleep=_sleep, max_minutes=max_minutes, scoped=scoped, top_n=top_n)
 
     log.info("=== Stage: cb_bw (price/volume) ===")
     epv.fetch_price_volume(force=force, sample=sample, sleep=_sleep, max_minutes=max_minutes)
@@ -205,6 +212,8 @@ def run(
     max_minutes: float | None = None,
     sleep: float | None = None,
     wics_date: str | None = None,
+    scoped: bool = False,
+    top_n: int = 100,
 ) -> None:
     """
     Run the Phase 1 pipeline.
@@ -231,7 +240,7 @@ def run(
 
     if stage == "cb_bw":
         log.info("=== Stage: cb_bw ===")
-        run_stage_cb_bw(force=force, sample=sample, sleep=sleep, max_minutes=max_minutes)
+        run_stage_cb_bw(force=force, sample=sample, sleep=sleep, max_minutes=max_minutes, scoped=scoped, top_n=top_n)
         return
 
     # Full Phase 1 pipeline: dart → transform
@@ -341,6 +350,19 @@ Examples:
         dest="wics_date",
         help="Pin WICS snapshot date. Note: WICS only serves recent dates.",
     )
+    parser.add_argument(
+        "--scoped",
+        action="store_true",
+        help="(cb_bw stage) Apply Phase 2 scoping filter: top-N by M-Score union companies with CB/BW events.",
+    )
+    parser.add_argument(
+        "--top-n",
+        type=int,
+        default=100,
+        metavar="N",
+        dest="top_n",
+        help="(cb_bw stage) Number of top M-Score companies to include in scoped universe (default: 100).",
+    )
 
     args = parser.parse_args()
     run(
@@ -354,4 +376,6 @@ Examples:
         max_minutes=args.max_minutes,
         sleep=args.sleep,
         wics_date=args.wics_date,
+        scoped=args.scoped,
+        top_n=args.top_n,
     )

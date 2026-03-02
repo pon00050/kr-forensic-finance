@@ -290,8 +290,8 @@ The top 50 flagged companies (by M-Score in any single year) must be manually sp
 
 ### 5.1 Scope
 
-Phase 2 does not run on all KOSDAQ companies. It runs on:
-- All companies in Phase 1's top 100 by M-Score in any year, AND
+Phase 2 does not run on all KOSDAQ companies. It runs on the union of:
+- All companies in Phase 1's top 100 by M-Score in any year, OR
 - All KOSDAQ companies with ≥1 CB or BW issuance on DART since 2018
 
 This narrows the target to approximately 200–400 companies.

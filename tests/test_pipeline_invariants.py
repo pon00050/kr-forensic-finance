@@ -28,6 +28,15 @@ ROOT      = pathlib.Path(__file__).resolve().parents[1]
 PROCESSED = ROOT / "01_Data" / "processed"
 RAW       = ROOT / "01_Data" / "raw"
 
+
+@pytest.fixture(scope="session", autouse=True)
+def _add_pipeline_to_path():
+    """Add 02_Pipeline/ to sys.path once for the entire test session."""
+    pipeline_dir = str(ROOT / "02_Pipeline")
+    if pipeline_dir not in sys.path:
+        sys.path.insert(0, pipeline_dir)
+
+
 # ─── Category 1: KSIC sample-preservation ────────────────────────────────────
 
 class TestKsicSamplePreservation:
@@ -1154,3 +1163,89 @@ class TestSectorPercentileMarket:
             f"Top KOSPI company percentile={top_kp_pct:.3f}; "
             f"expected ≥0.85 if isolated from KOSDAQ"
         )
+
+
+# ─── Category 14: corp_ticker_map schema contract ────────────────────────────
+
+class TestCorpTickerMap:
+    """
+    Gap 4: corp_ticker_map.parquet schema contract.
+    When the file exists, it must have the required columns and no nulls on
+    the two join keys (corp_code, ticker).
+    When the file is absent, tests skip.
+    """
+
+    @pytest.fixture(scope="class")
+    def corp_map(self):
+        p = PROCESSED / "corp_ticker_map.parquet"
+        if not p.exists():
+            pytest.skip("corp_ticker_map.parquet not found — run extract_corp_ticker_map.py first")
+        return pd.read_parquet(p)
+
+    def test_required_columns(self, corp_map):
+        required = ["corp_code", "ticker", "corp_name", "market", "effective_from", "effective_to"]
+        missing = [c for c in required if c not in corp_map.columns]
+        assert not missing, f"corp_ticker_map missing columns: {missing}"
+
+    def test_no_null_join_keys(self, corp_map):
+        null_corp = corp_map["corp_code"].isna().sum()
+        null_ticker = corp_map["ticker"].isna().sum()
+        assert null_corp == 0, f"{null_corp} null corp_code values"
+        assert null_ticker == 0, f"{null_ticker} null ticker values"
+
+    def test_corp_code_eight_digits(self, corp_map):
+        bad = corp_map["corp_code"].str.len().ne(8).sum()
+        assert bad == 0, f"{bad} corp_code values not 8 characters"
+
+    def test_no_duplicate_corp_codes(self, corp_map):
+        dup = corp_map.duplicated(subset=["corp_code"]).sum()
+        assert dup == 0, f"{dup} duplicate corp_code rows in corp_ticker_map"
+
+
+# ─── Category 15: CB/BW scoping filter (Gap 3) ───────────────────────────────
+
+class TestCbBwScopingFilter:
+    """
+    Gap 3: fetch_cb_bw_events() with --scoped flag must return a subset of
+    companies, not all 1,700+. Unit test uses synthetic data — no DART calls.
+    """
+
+    def test_scoping_filter_reduces_universe(self, tmp_path, monkeypatch):
+        """
+        Given: beneish_scores.parquet with 5 companies, top-3 by m_score flagged.
+        When: build_scoped_universe() is called.
+        Then: result contains those 3 corp_codes (at minimum).
+        """
+        try:
+            import extract_cb_bw as ecb
+        except ImportError:
+            pytest.skip("extract_cb_bw.py not yet implemented")
+        if not hasattr(ecb, "build_scoped_universe"):
+            pytest.skip("build_scoped_universe() not yet implemented in extract_cb_bw.py")
+
+        # Synthetic beneish_scores with 5 companies
+        scores = pd.DataFrame({
+            "corp_code": ["00000001", "00000002", "00000003", "00000004", "00000005"],
+            "m_score": [2.0, 1.5, 1.0, -3.0, -4.0],  # top-3 by m_score are 001, 002, 003
+        })
+        scores_path = tmp_path / "beneish_scores.parquet"
+        scores.to_parquet(scores_path, index=False)
+
+        cb_bw_corp_codes = {"00000004", "00000006"}  # 006 not in scores — union case
+
+        result = ecb.build_scoped_universe(
+            scores_path=scores_path,
+            cb_bw_corp_codes=cb_bw_corp_codes,
+            top_n=3,
+        )
+
+        # Must contain top-3 M-Score companies
+        assert "00000001" in result
+        assert "00000002" in result
+        assert "00000003" in result
+        # Must contain the CB/BW company
+        assert "00000004" in result
+        # Must include corp_code not in scores (union, not intersection)
+        assert "00000006" in result
+        # Must NOT contain the lowest-scoring company outside top-3 (unless it has CB/BW)
+        assert "00000005" not in result
