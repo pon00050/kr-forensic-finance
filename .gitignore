@@ -1,0 +1,59 @@
+# Environment and secrets
+.env
+
+# Raw and processed data — never committed
+01_Data/raw/
+01_Data/processed/
+
+# Verification script results (empirical outputs, not source)
+00_Reference/verify/results/
+
+# Analysis outputs (CSVs, HTML reports, JSON exports)
+03_Analysis/*.csv
+03_Analysis/cb_bw_timelines/
+03_Analysis/officer_network/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# uv / virtualenvs
+.venv/
+.uv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Local Claude Code settings (CLAUDE.md is committed; settings.local.json is not)
+.claude/settings.local.json
+
+# Documentation cache
+docs_cache/
+
+# Repo quality assessment and internal action items
+00_Reference/25_GitHub_Repo_Assessment.md
+
+# 00_Reference — entire directory is private
+# Contains operational knowledge, research findings, competitive analysis,
+# and business intelligence that should never be public.
+# Code, tests, README, CLAUDE.md, BUGS.md, and ROADMAP remain public.
+00_Reference/
+
+# Session handoff notes — internal only
+NEXT_SESSION_GITHUB_RELEASE.md
+BUGS.md

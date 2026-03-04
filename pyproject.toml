@@ -1,0 +1,55 @@
+[project]
+name = "kr-forensic-finance"
+version = "1.5.0"
+requires-python = ">=3.11"
+dependencies = [
+    # Phase 1 — Beneish screen
+    "opendartreader",   # DART API client
+    "pykrx",            # KOSDAQ ticker list
+    "pandas",
+    "pyarrow",          # parquet I/O
+    "marimo",           # analysis notebook format (interactive UI deferred; scripts run as plain Python)
+    "plotly",           # charts in notebook
+    "requests",         # WICS API calls
+    "tqdm",             # optional progress bars in extract_dart (graceful fallback if absent)
+    "python-dotenv",
+    "typer>=0.9.0",     # CLI entry point (krff command)
+
+    # Cloud storage (optional — R2 upload + DuckDB remote reads)
+    "s3fs>=2024.1.0",
+    "boto3>=1.34.0",
+    "duckdb>=1.0.0",
+    "setuptools<82",   # pykrx requires pkg_resources; setuptools>=82 removed it
+
+    # Phase 2 additions (uncomment when starting Phase 2):
+    # "dart-fss",             # DS005 CB/BW structured endpoint helpers
+    # "playwright",           # SEIBRO scraping (WebSquare JS rendering)
+    # "beautifulsoup4",       # SEIBRO + KFTC HTML parsing (extract_seibro.py, extract_kftc.py)
+    # "scipy",                # statistical tests for timing anomaly analysis
+    # "FinanceDataReader",    # PyKRX spike alternative — test with --backend fdr from Railway
+    # "yfinance",             # PyKRX spike alternative — test with --backend yfinance from Railway
+
+    # Phase 3 additions (uncomment when starting Phase 3):
+    # "networkx",       # officer network graph
+    # "pyvis",          # interactive HTML graph rendering
+]
+
+[project.scripts]
+krff = "cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["02_Pipeline", "03_Analysis", "src"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
