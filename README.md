@@ -1,7 +1,7 @@
 # kr-forensic-finance
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
-![Tests](https://img.shields.io/badge/tests-44%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-60%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 Public infrastructure for systematic anomaly screening across Korean listed companies — built entirely on open data.
@@ -49,6 +49,19 @@ git clone https://github.com/pon00050/kr-forensic-finance
 cd kr-forensic-finance
 uv sync
 cp .env.example .env           # add DART API key / DART API 키 입력 (free / 무료: opendart.fss.or.kr)
+```
+
+**Option A — `krff` CLI (v1.5.0+):**
+```bash
+krff run --market KOSDAQ --start 2019 --end 2023
+python 03_Analysis/beneish_screen.py   # compute M-scores → beneish_scores.parquet
+krff analyze                           # print score summary
+krff charts                            # write 03_Analysis/beneish_viz.html
+krff --help                            # list all commands
+```
+
+**Option B — direct scripts (unchanged):**
+```bash
 python 02_Pipeline/pipeline.py --market KOSDAQ --start 2019 --end 2023
 python 03_Analysis/beneish_screen.py
 # output / 출력 → 03_Analysis/beneish_scores.csv
@@ -62,7 +75,7 @@ python 03_Analysis/beneish_screen.py
 
 **Smoke test (5 companies, ~3 min):**
 ```bash
-python 02_Pipeline/pipeline.py --market KOSDAQ --start 2021 --end 2023 --sample 5 --sleep 0.1 --max-minutes 3
+krff run --market KOSDAQ --start 2021 --end 2023 --sample 5 --sleep 0.1 --max-minutes 3
 python 03_Analysis/beneish_screen.py
 ```
 
@@ -153,10 +166,10 @@ See `00_Reference/21_Test_Suite.md` for per-test documentation.
 | `corp_code` | DART 8-digit company identifier |
 | `ticker` | KRX 6-digit ticker |
 | `company_name` | Korean company name |
-| `year_t` | Fiscal year (score period; e.g. 2023 uses 2022–2023 data) |
+| `year` | Fiscal year (score period; e.g. 2023 uses 2022–2023 data) |
 | `m_score` | Beneish M-Score (8-variable; threshold: −1.78) |
 | `flag` | `True` if M-Score > −1.78 (possible manipulator) |
-| `risk_tier` | `"high"` / `"medium"` / `"low"` based on score range |
+| `risk_tier` | `"Critical"` / `"High"` / `"Medium"` / `"Low"` based on score range |
 | `high_fp_risk` | `True` for biotech/pharma (structural false positive risk) |
 | `wics_sector` | WICS sector name (e.g. "건강관리", "IT") |
 | `sector_percentile` | Company's M-Score percentile within its WICS sector |
@@ -165,7 +178,7 @@ See `00_Reference/21_Test_Suite.md` for per-test documentation.
 
 Full schema spec: [`00_Reference/17_MVP_Requirements.md §4.6`](00_Reference/17_MVP_Requirements.md)
 
-**`top50_spot_check.csv`** (`tests/`) — Top 50 companies by M-Score with `corp_code`, `ticker`, `company_name`, `year_t`, `m_score`, `flag`.
+**`top50_spot_check.csv`** (`tests/`) — Top 50 companies by M-Score with `corp_code`, `ticker`, `company_name`, `year`, `m_score`, `flag`.
 
 ### Further Reading
 
