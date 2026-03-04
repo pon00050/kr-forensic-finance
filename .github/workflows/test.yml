@@ -11,6 +11,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+      - run: pip install --upgrade pip
       - run: pip install -e ".[dev]"
         timeout-minutes: 10
       - run: pytest tests/test_pipeline_invariants.py tests/test_e2e_synthetic.py -v
