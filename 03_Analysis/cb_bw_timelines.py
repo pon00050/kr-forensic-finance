@@ -26,10 +26,10 @@ Methodology note:
     expected ~40% — all outputs require human review before any regulatory action.
 
 Run interactively:
-    marimo edit 03_Analysis/cb_bw_timelines.py
+    uv run marimo edit 03_Analysis/cb_bw_timelines.py
 
 Run as web app:
-    marimo run 03_Analysis/cb_bw_timelines.py
+    uv run marimo run 03_Analysis/cb_bw_timelines.py
 """
 
 import marimo

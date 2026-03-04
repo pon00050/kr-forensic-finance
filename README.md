@@ -52,7 +52,7 @@ Planned (not yet implemented): CB/BW timelines, disclosure timing anomalies, off
 ```bash
 git clone https://github.com/pon00050/kr-forensic-finance
 cd kr-forensic-finance
-pip install -e ".[dev]"
+uv sync
 cp .env.example .env           # add DART API key / DART API 키 입력 (free / 무료: opendart.fss.or.kr)
 ```
 

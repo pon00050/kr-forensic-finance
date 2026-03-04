@@ -35,7 +35,7 @@ Add invariant tests for any new Parquet schema columns. Add acceptance-criteria 
 
 ## Coding Conventions
 
-- **Package manager:** `pip` — add dependencies to `pyproject.toml`, then `pip install -e ".[dev]"`
+- **Package manager:** `uv` — add dependencies to `pyproject.toml`, then `uv sync`
 - **Storage:** Parquet for tabular data (`01_Data/processed/`); raw files to `01_Data/raw/` unmodified
 - **Credentials:** Never hardcode API keys. Use `.env` (see `.env.example`). The `.gitignore` excludes `.env` and all of `01_Data/`
 - **Pipeline calls:** Use `pipeline.py` as the entry point. It propagates `--sample`, `--start`, `--end`, `--force`, and `--sleep` consistently across stages

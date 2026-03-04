@@ -22,10 +22,9 @@ __pycache__/
 dist/
 build/
 
-# virtualenvs
+# uv / virtualenvs
 .venv/
 .uv/
-uv.lock
 
 # OS
 .DS_Store

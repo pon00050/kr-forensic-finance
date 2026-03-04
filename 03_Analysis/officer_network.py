@@ -33,10 +33,10 @@ Output:
     03_Analysis/officer_network/centrality_report.csv
 
 Run interactively:
-    marimo edit 03_Analysis/officer_network.py
+    uv run marimo edit 03_Analysis/officer_network.py
 
 Run as web app:
-    marimo run 03_Analysis/officer_network.py
+    uv run marimo run 03_Analysis/officer_network.py
 """
 
 import marimo
@@ -357,7 +357,7 @@ def _export(G, df_centrality, mo, Path, PYVIS_AVAILABLE, PyvisNetwork):
         net.save_graph(str(html_path))
         graph_msg = f"Interactive graph saved to `{html_path}`"
     else:
-        graph_msg = "pyvis not available — install with `pip install pyvis` for interactive graph export"
+        graph_msg = "pyvis not available — install with `uv add pyvis` for interactive graph export"
 
     return mo.callout(
         mo.md(

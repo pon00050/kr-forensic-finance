@@ -7,9 +7,9 @@ days of OHLCV for each CB/BW event window.
 Backends (choose with --backend):
   pykrx      Default. Works from laptop only — KRX blocks datacenter IPs.
   fdr        FinanceDataReader. Uses KRX data feed; geo-block status unknown.
-             pip: FinanceDataReader (not yet in pyproject.toml — add before use)
+             uv add FinanceDataReader (not yet in pyproject.toml — add before use)
   yfinance   Yahoo Finance global CDN. No geo-block documented.
-             pip: yfinance (not yet in pyproject.toml — add before use)
+             uv add yfinance (not yet in pyproject.toml — add before use)
 
 Spike procedure (Day 1 — test from Railway):
   1. Deploy a one-off script that calls this with --backend fdr --sample 3
@@ -74,7 +74,7 @@ def _fetch_ohlcv_fdr(ticker: str, start_dt: str, end_dt: str) -> pd.DataFrame:
     try:
         import FinanceDataReader as fdr
     except ImportError:
-        raise ImportError("FinanceDataReader not installed. Run: pip install FinanceDataReader")
+        raise ImportError("FinanceDataReader not installed. Run: uv add FinanceDataReader")
     # FDR accepts YYYYMMDD or YYYY-MM-DD; returns DatetimeIndex
     df = fdr.DataReader(ticker, "KRX", start=start_dt, end=end_dt)
     if df is None or df.empty:
@@ -91,7 +91,7 @@ def _fetch_ohlcv_yfinance(ticker: str, start_dt: str, end_dt: str) -> pd.DataFra
     try:
         import yfinance as yf
     except ImportError:
-        raise ImportError("yfinance not installed. Run: pip install yfinance")
+        raise ImportError("yfinance not installed. Run: uv add yfinance")
     # Korean tickers: try .KS (KOSPI/KOSDAQ both supported by Yahoo) then .KQ
     start_iso = f"{start_dt[:4]}-{start_dt[4:6]}-{start_dt[6:]}"
     end_iso   = f"{end_dt[:4]}-{end_dt[4:6]}-{end_dt[6:]}"

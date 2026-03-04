@@ -5,13 +5,12 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.11"
-          cache: pip
-      - run: pip install --upgrade pip
-      - run: pip install -e ".[dev]"
-        timeout-minutes: 10
-      - run: pytest tests/test_pipeline_invariants.py tests/test_e2e_synthetic.py -v
+          enable-cache: true
+      - run: uv sync --extra dev
+      - run: uv run pytest tests/test_pipeline_invariants.py tests/test_e2e_synthetic.py -v
+        timeout-minutes: 5

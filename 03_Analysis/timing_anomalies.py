@@ -26,10 +26,10 @@ by this metric. The disclosure type filter reduces but does not eliminate false 
 All flags require human review.
 
 Run interactively:
-    marimo edit 03_Analysis/timing_anomalies.py
+    uv run marimo edit 03_Analysis/timing_anomalies.py
 
 Run as web app:
-    marimo run 03_Analysis/timing_anomalies.py
+    uv run marimo run 03_Analysis/timing_anomalies.py
 """
 
 import marimo

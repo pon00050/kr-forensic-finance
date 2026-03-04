@@ -32,10 +32,10 @@ Outputs:
     03_Analysis/beneish_scores.csv
 
 Run interactively:
-    marimo edit 03_Analysis/beneish_screen.py
+    uv run marimo edit 03_Analysis/beneish_screen.py
 
 Run as script (non-interactive, writes CSV):
-    python 03_Analysis/beneish_screen.py
+    uv run python 03_Analysis/beneish_screen.py
 """
 
 import marimo
