@@ -10,8 +10,8 @@ The four analysis milestones live in `03_Analysis/`:
 |---|---|---|
 | `beneish_screen.py` | Complete (Phase 1) | Beneish M-Score screen |
 | `cb_bw_timelines.py` | Planned (Phase 2) | CB/BW issuance → repricing → exercise chain |
-| `timing_anomalies.py` | Planned (Phase 3) | Disclosure timestamps vs. price/volume movement |
-| `officer_network.py` | Planned (Phase 4) | Officer network graph across flagged companies |
+| `timing_anomalies.py` | Planned (Phase 2) | Disclosure timestamps vs. price/volume movement |
+| `officer_network.py` | Planned (Phase 3) | Officer network graph across flagged companies |
 
 To implement a planned milestone:
 1. Read the stub file and the corresponding section in the technical architecture doc (local: `00_Reference/04_Technical_Architecture.md`)

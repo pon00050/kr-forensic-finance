@@ -1,7 +1,7 @@
 # kr-forensic-finance
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
-![Tests](https://img.shields.io/badge/tests-60%20passing-brightgreen)
+![Tests](https://github.com/pon00050/kr-forensic-finance/actions/workflows/test.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 Public infrastructure for systematic anomaly screening across Korean listed companies — built entirely on open data.
@@ -113,30 +113,55 @@ All data is publicly available and free. 사용된 데이터는 모두 무료로
 
 ## For Developers
 
+See also: [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md) · [KNOWN_ISSUES.md](KNOWN_ISSUES.md) · [ROADMAP.md](ROADMAP.md)
+
 ### Folder Structure
 
 ```
 kr-forensic-finance/
 ├── README.md
-├── KNOWN_ISSUES.md            Known data gaps and mapping limitations
-├── pyproject.toml             uv manifest — requires-python >=3.11
-├── .env.example               DART_API_KEY + R2 credentials template
-├── 00_Reference/              Local reference docs (not committed)
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── KNOWN_ISSUES.md
+├── ROADMAP.md
+├── LICENSE
+├── pyproject.toml
+├── cli.py                         krff CLI entry point
+├── .env.example                   DART API key + R2 credentials template
+├── 00_Reference/                  Local reference docs (not committed)
 ├── 01_Data/
-│   ├── raw/                   From APIs, unmodified (gitignored)
-│   └── processed/             Cleaned, joined (gitignored)
+│   ├── raw/                       From APIs, unmodified (gitignored)
+│   └── processed/                 Cleaned, joined (gitignored)
 ├── 02_Pipeline/
-│   ├── pipeline.py            CLI orchestrator — start here
-│   ├── extract_dart.py        OpenDartReader — financials, CB/BW, officers
-│   ├── transform.py           raw → company_financials.parquet
-│   └── ...                    extract_krx, extract_seibro, extract_kftc
+│   ├── pipeline.py                CLI orchestrator — start here
+│   ├── extract_dart.py            OpenDartReader — financials, sector codes
+│   ├── extract_cb_bw.py           DART DS005 — CB/BW issuance events
+│   ├── extract_corp_ticker_map.py corp_code ↔ ticker mapping
+│   ├── extract_price_volume.py    KRX/FDR/yfinance OHLCV
+│   ├── extract_officer_holdings.py DART officer holding changes
+│   ├── extract_seibro.py          SEIBRO CB/BW repricing (Playwright)
+│   ├── extract_krx.py             KRX short selling balances
+│   ├── extract_kftc.py            KFTC cross-shareholding
+│   └── transform.py               raw → company_financials.parquet
 ├── 03_Analysis/
-│   ├── beneish_screen.py      Milestone 1 — Beneish M-Score
-│   ├── beneish_viz.py         Visual summary — 5 Plotly charts → beneish_viz.html
-│   └── beneish_viz.html       Generated output — open in any browser
+│   ├── beneish_screen.py          Milestone 1 — Beneish M-Score
+│   ├── beneish_viz.py             Visual summary → beneish_viz.html
+│   ├── beneish_viz.html           Generated output — open in any browser
+│   ├── phase1_research_questions.py  Open analytical threads from Phase 1
+│   ├── cb_bw_timelines.py         Milestone 2 — CB/BW event chains (stub)
+│   ├── timing_anomalies.py        Milestone 3 — Disclosure timing (stub)
+│   └── officer_network.py         Milestone 4 — Officer graph (stub)
+├── src/
+│   ├── __init__.py                Package init
+│   ├── pipeline.py                Pipeline wrapper for CLI/API callers
+│   ├── analysis.py                Beneish screen wrapper
+│   └── charts.py                  Plotly chart generation
 └── tests/
-    ├── test_pipeline_invariants.py   Self-contained (run any time)
-    └── test_acceptance_criteria.py   End-to-end (run after pipeline)
+    ├── conftest.py                Shared fixtures (sys.path setup)
+    ├── test_pipeline_invariants.py Schema/logic tests (run any time)
+    ├── test_acceptance_criteria.py End-to-end checks (after pipeline)
+    ├── test_cli.py                CLI smoke tests
+    └── top50_spot_check.csv       Spot-check reference data
 ```
 
 ### How the Scripts Fit Together

@@ -2,6 +2,19 @@
 name = "kr-forensic-finance"
 version = "1.5.0"
 requires-python = ">=3.11"
+description = "Public infrastructure for systematic anomaly screening across Korean listed companies"
+authors = [{name = "pon00050"}]
+license = {text = "MIT"}
+readme = "README.md"
+keywords = ["kosdaq", "dart", "beneish", "financial-forensics", "korea", "open-data"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Office/Business :: Financial",
+]
 dependencies = [
     # Phase 1 — Beneish screen
     "opendartreader",   # DART API client
@@ -36,6 +49,10 @@ dependencies = [
 
 [project.scripts]
 krff = "cli:app"
+
+[project.urls]
+Repository = "https://github.com/pon00050/kr-forensic-finance"
+Issues = "https://github.com/pon00050/kr-forensic-finance/issues"
 
 [build-system]
 requires = ["hatchling"]
