@@ -35,7 +35,8 @@
 | S9 | Cross-screen: PC3 top-decile × flagged CB/BW events | **139 double-flagged company-years; 112 unique secondary companies** — all have flag_count=1 (volume_surge only); 0 high-priority secondaries (flag_count≥2 + PC3≥95th); S8 runs at default scope; `double_flagged_companies.csv` produced |
 | S8 | Run `extract_depreciation_schedule.py` for 5 Tier 1 leads | All 15 rows = parse_error or no_filing; DART sub_docs keyword matching returns wrong table type for these companies; Category 20 tests flip from 8 skipped → **8 passed**; FINDINGS.md §4 updated with root cause |
 | S10a | Extract disclosures for 50 unflagged control companies | `disclosures.parquet` expanded from 8 → **58 corp_codes** (3,581 → 27,486 rows; +23,905 control rows) |
-| S10b | Rebuild FDR null from control disclosures × price data | Control null: 2,000 quiet events; **687/687 test events trivially survive BH** — because timing_anomalies.csv is pre-filtered to ≥5% events, any clean null < 1% gives p≈0 for all; valid FDR test requires unfiltered disclosure dataset (new S11) |
+| S10b | Rebuild FDR null from control disclosures × price data | Control null: 2,000 quiet events; **687/687 test events trivially survive BH** — KI-021 diagnosed: pre-filtering makes any clean null give p≈0; valid test requires unfiltered input → S11 |
+| S11 | Proper FDR disclosure leakage test (fixes KI-021) | `fdr_disclosure_leakage.py` written; **2/822 events survive BH at q=0.043** — 피씨엘 2021-01-18 (+287%) and 프로브잇 2021-06-14 (+143%); p-value distribution shows mild enrichment near 0 (69 vs 41 expected in [0,0.05)); KI-021 RESOLVED; see `FINDINGS.md` §1 |
 
 ## Statistical Analysis — Completed (Session 24)
 
@@ -51,9 +52,7 @@
 
 ### Ready now (no external dependencies)
 
-| ID | Description | Effort | Notes |
-|---|---|---|---|
-| S11 | Proper FDR test: compute price_change_pct for ALL 3,581 flagged-company disclosures; test whether flagged companies' disclosure-day price changes are systematically higher than 50 control companies at q≤0.05 | 1 day | S10b revealed that testing pre-filtered extreme events against a clean null is trivially significant; valid test needs unfiltered input for both test and null |
+*(none — all non-blocked items complete)*
 
 ### Blocked (external dependencies)
 
