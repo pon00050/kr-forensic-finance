@@ -1435,20 +1435,33 @@ class TestOfficerFlagThreshold:
     for every officer in the network. Fix B lowers the threshold to 1 so that
     volume-only signals seed the network.
 
-    This test imports the constant directly from the module.
+    Uses ast to parse the constant from source — avoids importing the module
+    and triggering a networkx import that may not be installed in CI.
     """
 
     def test_flag_threshold_constant_is_one(self):
-        import sys
-        analysis_dir = str(pathlib.Path(__file__).resolve().parents[1] / "03_Analysis")
-        if analysis_dir not in sys.path:
-            sys.path.insert(0, analysis_dir)
-        import run_officer_network as ron
-        assert hasattr(ron, "FLAG_THRESHOLD"), (
-            "FLAG_THRESHOLD constant not found in run_officer_network.py"
+        import ast
+        src_path = (
+            pathlib.Path(__file__).resolve().parents[1]
+            / "03_Analysis"
+            / "run_officer_network.py"
         )
-        assert ron.FLAG_THRESHOLD == 1, (
-            f"FLAG_THRESHOLD={ron.FLAG_THRESHOLD}; expected 1. "
-            "Fix B requires FLAG_THRESHOLD=1 to seed the officer network with "
-            "volume-only flagged companies while SEIBRO repricing data is pending."
+        assert src_path.exists(), f"run_officer_network.py not found at {src_path}"
+        tree = ast.parse(src_path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "FLAG_THRESHOLD":
+                        assert isinstance(node.value, ast.Constant), (
+                            "FLAG_THRESHOLD must be a literal constant"
+                        )
+                        assert node.value.value == 1, (
+                            f"FLAG_THRESHOLD={node.value.value}; expected 1. "
+                            "Fix B requires FLAG_THRESHOLD=1 to seed the officer "
+                            "network with volume-only flagged companies while SEIBRO "
+                            "repricing data is pending."
+                        )
+                        return
+        raise AssertionError(
+            "FLAG_THRESHOLD constant not found in run_officer_network.py"
         )
