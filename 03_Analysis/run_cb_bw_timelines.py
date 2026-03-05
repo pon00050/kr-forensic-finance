@@ -144,15 +144,14 @@ def score_events(
         for rp in repricings:
             rp_price = rp.get("new_price") or rp.get("조정가액")
             rp_date_raw = rp.get("date") or rp.get("조정일자")
-            if rp_price is None or rp_date_raw is None:
+            if not rp_price or not rp_date_raw:
                 continue   # skip malformed repricing record; can't score without price+date
-            if rp_price and rp_date_raw:
-                rp_date = pd.to_datetime(str(rp_date_raw)[:8], errors="coerce")
-                if not pd.isna(rp_date):
-                    candidates = df_ticker[df_ticker["date"] <= rp_date]["close"]
-                    market_price_at_rp = candidates.iloc[-1] if not candidates.empty else None
-                    if market_price_at_rp and float(rp_price) < market_price_at_rp * 0.95:
-                        repricing_flag = True
+            rp_date = pd.to_datetime(str(rp_date_raw)[:8], errors="coerce")
+            if not pd.isna(rp_date):
+                candidates = df_ticker[df_ticker["date"] <= rp_date]["close"]
+                market_price_at_rp = candidates.iloc[-1] if not candidates.empty else None
+                if market_price_at_rp and float(rp_price) < market_price_at_rp * 0.95:
+                    repricing_flag = True
         if repricing_flag:
             flags.append("repricing_below_market")
             flag_details["repricing_flag"] = True
@@ -170,9 +169,9 @@ def score_events(
             peak_date = df_window.loc[peak_idx, "date"] if peak_idx in df_window.index else None
             for ex in exercises:
                 ex_date_raw = ex.get("exercise_date") or ex.get("권리행사일")
-                if ex_date_raw is None:
+                if not ex_date_raw:
                     continue   # skip malformed exercise record
-                if ex_date_raw and peak_date is not None:
+                if peak_date is not None:
                     ex_date = pd.to_datetime(str(ex_date_raw)[:8], errors="coerce")
                     if not pd.isna(ex_date) and abs((ex_date - peak_date).days) <= 5:
                         exercise_cluster_flag = True

@@ -1313,6 +1313,12 @@ class TestDataQualityAnomalies:
 class TestMergeRunSummaries:
     """_merge_run_summaries schema contract and safety tests (KI-008)."""
 
+    @pytest.fixture(autouse=True)
+    def _setup_pipeline_path(self):
+        pipeline_dir = str(ROOT / "02_Pipeline")
+        if pipeline_dir not in sys.path:
+            sys.path.insert(0, pipeline_dir)
+
     def _make_summary(self, **overrides) -> dict:
         base = {
             "total_companies": 10,
@@ -1329,9 +1335,6 @@ class TestMergeRunSummaries:
 
     def test_merge_with_empty_old_does_not_raise(self):
         """First run: old={}, new=full summary — must not KeyError."""
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
         from pipeline import _merge_run_summaries
         result = _merge_run_summaries({}, self._make_summary())
         assert "total_companies" in result
@@ -1339,9 +1342,6 @@ class TestMergeRunSummaries:
 
     def test_merge_skips_entries_missing_corp_code(self):
         """Malformed partial_data entries (no corp_code) are silently skipped."""
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
         from pipeline import _merge_run_summaries
         old = self._make_summary(partial_data=[{"not_corp_code": "x"}])
         new = self._make_summary()
@@ -1350,9 +1350,6 @@ class TestMergeRunSummaries:
 
     def test_output_has_all_required_keys(self):
         """Return value always has all 8 RunSummary keys."""
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
         from pipeline import _merge_run_summaries
         result = _merge_run_summaries({}, self._make_summary())
         required = {"total_companies", "years", "completed_at", "elapsed_minutes",
