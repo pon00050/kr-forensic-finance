@@ -17,9 +17,37 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import TypedDict
 
 import numpy as np
 import pandas as pd
+
+
+class FlagDetails(TypedDict, total=False):
+    """Sparse dict accumulating per-event flag evidence. All keys are optional."""
+    repricing_flag:        bool
+    exercise_cluster_flag: bool
+    peak_date:             str | None    # str(pd.Timestamp) or None
+    volume_ratio:          float         # rounded to 2dp
+
+
+class CbBwResult(TypedDict):
+    """One row in the cb_bw_summary.csv output."""
+    corp_code:              str
+    ticker:                 str
+    issue_date:             str          # "YYYY-MM-DD"
+    bond_type:              str
+    exercise_price:         float | None
+    anomaly_score:          int
+    flag_count:             int
+    flags:                  str          # comma-separated flag names
+    repricing_flag:         bool
+    exercise_cluster_flag:  bool
+    volume_flag:            bool
+    holdings_flag:          bool
+    volume_ratio:           float | None
+    peak_date:              str | None
+    dart_link:              str
 
 ROOT = Path(__file__).resolve().parents[1]
 PROCESSED = ROOT / "01_Data" / "processed"
@@ -104,7 +132,7 @@ def score_events(
             continue
 
         flags = []
-        flag_details: dict = {}
+        flag_details: FlagDetails = {}
 
         # Flag 1: Repricing below market price
         repricing_flag = False
@@ -116,6 +144,8 @@ def score_events(
         for rp in repricings:
             rp_price = rp.get("new_price") or rp.get("조정가액")
             rp_date_raw = rp.get("date") or rp.get("조정일자")
+            if rp_price is None or rp_date_raw is None:
+                continue   # skip malformed repricing record; can't score without price+date
             if rp_price and rp_date_raw:
                 rp_date = pd.to_datetime(str(rp_date_raw)[:8], errors="coerce")
                 if not pd.isna(rp_date):
@@ -140,6 +170,8 @@ def score_events(
             peak_date = df_window.loc[peak_idx, "date"] if peak_idx in df_window.index else None
             for ex in exercises:
                 ex_date_raw = ex.get("exercise_date") or ex.get("권리행사일")
+                if ex_date_raw is None:
+                    continue   # skip malformed exercise record
                 if ex_date_raw and peak_date is not None:
                     ex_date = pd.to_datetime(str(ex_date_raw)[:8], errors="coerce")
                     if not pd.isna(ex_date) and abs((ex_date - peak_date).days) <= 5:
@@ -183,7 +215,7 @@ def score_events(
             flags.append("holdings_decrease")
 
         anomaly_score = len(flags)
-        results.append({
+        row: CbBwResult = {
             "corp_code": corp_code,
             "ticker": ticker,
             "issue_date": str(issue_date.date()),
@@ -199,7 +231,8 @@ def score_events(
             "volume_ratio": flag_details.get("volume_ratio"),
             "peak_date": flag_details.get("peak_date"),
             "dart_link": f"https://dart.fss.or.kr/corp/searchAjax.do?textCrpCik={corp_code}",
-        })
+        }
+        results.append(row)
 
     df_results = pd.DataFrame(results)
     if not df_results.empty:

@@ -1306,3 +1306,83 @@ class TestDataQualityAnomalies:
             f"{len(extreme)} KOSDAQ company-year(s) with revenue >20조 KRW — "
             f"likely XBRL unit-scale error:\n{extreme.to_string()}"
         )
+
+
+# ─── Category N: _merge_run_summaries schema contract ────────────────────────
+
+class TestMergeRunSummaries:
+    """_merge_run_summaries schema contract and safety tests (KI-008)."""
+
+    def _make_summary(self, **overrides) -> dict:
+        base = {
+            "total_companies": 10,
+            "years": [2021, 2022],
+            "completed_at": "2026-03-05",
+            "elapsed_minutes": 1.5,
+            "full_data": ["00100001"],
+            "partial_data": [],
+            "no_data": [],
+            "errors": [],
+        }
+        base.update(overrides)
+        return base
+
+    def test_merge_with_empty_old_does_not_raise(self):
+        """First run: old={}, new=full summary — must not KeyError."""
+        pipeline_dir = str(ROOT / "02_Pipeline")
+        if pipeline_dir not in sys.path:
+            sys.path.insert(0, pipeline_dir)
+        from pipeline import _merge_run_summaries
+        result = _merge_run_summaries({}, self._make_summary())
+        assert "total_companies" in result
+        assert "full_data" in result
+
+    def test_merge_skips_entries_missing_corp_code(self):
+        """Malformed partial_data entries (no corp_code) are silently skipped."""
+        pipeline_dir = str(ROOT / "02_Pipeline")
+        if pipeline_dir not in sys.path:
+            sys.path.insert(0, pipeline_dir)
+        from pipeline import _merge_run_summaries
+        old = self._make_summary(partial_data=[{"not_corp_code": "x"}])
+        new = self._make_summary()
+        result = _merge_run_summaries(old, new)  # must not KeyError
+        assert result["partial_data"] == []
+
+    def test_output_has_all_required_keys(self):
+        """Return value always has all 8 RunSummary keys."""
+        pipeline_dir = str(ROOT / "02_Pipeline")
+        if pipeline_dir not in sys.path:
+            sys.path.insert(0, pipeline_dir)
+        from pipeline import _merge_run_summaries
+        result = _merge_run_summaries({}, self._make_summary())
+        required = {"total_companies", "years", "completed_at", "elapsed_minutes",
+                    "full_data", "partial_data", "no_data", "errors"}
+        assert required.issubset(result.keys())
+
+
+# ─── Category N+1: beneish_screen.py output column completeness ──────────────
+
+class TestBeneishOutputColsComplete:
+    """
+    beneish_screen.py must not silently omit columns before writing Parquet.
+
+    Guards KI-009: the previous silent-omission pattern (available = [c for c
+    in output_cols if c in df_scored.columns]) was replaced with an AssertionError.
+    This test validates that beneish_scores.parquet contains all expected columns,
+    confirming the assert in beneish_screen.py is firing correctly on real data.
+    """
+
+    @pytest.fixture(scope="class")
+    def scores(self):
+        p = PROCESSED / "beneish_scores.parquet"
+        if not p.exists():
+            pytest.skip("beneish_scores.parquet not found — run beneish_screen.py first")
+        return pd.read_parquet(p)
+
+    def test_beneish_output_cols_are_complete(self, scores):
+        """All expected output columns are present in beneish_scores.parquet."""
+        missing = [c for c in REQUIRED_BENEISH_COLUMNS if c not in scores.columns]
+        assert not missing, (
+            f"beneish_scores.parquet missing expected columns: {missing}. "
+            f"Check beneish_screen.py output_cols assertion."
+        )

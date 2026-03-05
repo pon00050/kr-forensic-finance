@@ -327,8 +327,13 @@ def _write_parquet(df_scored, os, pd, Path):
         "wics_sector_code", "wics_sector", "sector_percentile",
         "dart_link",
     ]
-    available = [c for c in output_cols if c in df_scored.columns]
-    df_out = df_scored[available].copy()
+    missing_cols = [c for c in output_cols if c not in df_scored.columns]
+    if missing_cols:
+        raise AssertionError(
+            f"beneish_screen: computed DataFrame is missing expected output columns: "
+            f"{missing_cols}. Check Beneish formula or WICS enrichment step."
+        )
+    df_out = df_scored[output_cols].copy()
 
     parquet_path = _processed / "beneish_scores.parquet"
     df_out.to_parquet(parquet_path, index=False, engine="pyarrow")

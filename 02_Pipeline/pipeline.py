@@ -34,6 +34,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+from typing import TypedDict
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,12 +49,38 @@ if str(_PIPELINE_DIR) not in sys.path:
     sys.path.insert(0, str(_PIPELINE_DIR))
 
 
-def _merge_run_summaries(old: dict, new: dict) -> dict:
+class RunSummaryEntry(TypedDict):
+    """Shape of each entry in partial_data and errors lists."""
+    corp_code: str          # 8-digit DART identifier (only key accessed here)
+    # Additional keys from extract_dart are preserved as-is
+
+
+class RunSummary(TypedDict):
+    """Shape of run_summary.json — produced and consumed by _merge_run_summaries."""
+    total_companies:  int
+    years:            list[int]
+    completed_at:     str | None
+    elapsed_minutes:  float | None
+    full_data:        list[str]
+    partial_data:     list[RunSummaryEntry]
+    no_data:          list[str]
+    errors:           list[RunSummaryEntry]
+
+
+def _merge_run_summaries(old: RunSummary | dict, new: RunSummary) -> RunSummary:
     """Merge two run summary dicts. new wins on conflicts; full_data > partial_data > no_data."""
     merged_full    = set(old.get("full_data", []))
-    merged_partial = {e["corp_code"]: e for e in old.get("partial_data", [])}
+    merged_partial = {
+        e["corp_code"]: e
+        for e in old.get("partial_data", [])
+        if "corp_code" in e
+    }
     merged_no_data = set(old.get("no_data", []))
-    merged_errors  = {e["corp_code"]: e for e in old.get("errors", [])}
+    merged_errors  = {
+        e["corp_code"]: e
+        for e in old.get("errors", [])
+        if "corp_code" in e
+    }
 
     for corp_code in new.get("full_data", []):
         merged_full.add(corp_code)
@@ -61,7 +88,9 @@ def _merge_run_summaries(old: dict, new: dict) -> dict:
         merged_no_data.discard(corp_code)
         merged_errors.pop(corp_code, None)
     for entry in new.get("partial_data", []):
-        cc = entry["corp_code"]
+        cc = entry.get("corp_code")
+        if cc is None:
+            continue
         if cc not in merged_full:
             merged_partial[cc] = entry
             merged_no_data.discard(cc)
@@ -70,7 +99,8 @@ def _merge_run_summaries(old: dict, new: dict) -> dict:
         if corp_code not in merged_full and corp_code not in merged_partial:
             merged_no_data.add(corp_code)
     for entry in new.get("errors", []):
-        merged_errors[entry["corp_code"]] = entry
+        if "corp_code" in entry:
+            merged_errors[entry["corp_code"]] = entry
 
     return {
         "total_companies": new["total_companies"],
