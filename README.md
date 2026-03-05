@@ -116,16 +116,14 @@ All data is publicly available and free. 사용된 데이터는 모두 무료로
 
 ## For Developers
 
-See also: [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md) · [KNOWN_ISSUES.md](KNOWN_ISSUES.md) · [ROADMAP.md](ROADMAP.md)
+See also: [CONTRIBUTING.md](CONTRIBUTING.md) · [ROADMAP.md](ROADMAP.md)
 
 ### Folder Structure
 
 ```
 kr-forensic-finance/
 ├── README.md
-├── CHANGELOG.md
 ├── CONTRIBUTING.md
-├── KNOWN_ISSUES.md
 ├── ROADMAP.md
 ├── LICENSE
 ├── pyproject.toml
@@ -162,7 +160,7 @@ kr-forensic-finance/
 │   ├── run_cb_bw_timelines.py     Standalone runner → cb_bw_summary.csv
 │   ├── run_timing_anomalies.py    Standalone runner → timing_anomalies.csv
 │   ├── run_officer_network.py     Standalone runner → centrality_report.csv
-│   └── company_dives/             Per-company forensic deep dive scripts
+│   └── company_dives/             Per-company forensic scripts (local only, not committed)
 ├── src/
 │   ├── __init__.py                Package init
 │   ├── pipeline.py                Pipeline wrapper for CLI/API callers
@@ -201,7 +199,7 @@ python 02_Pipeline/extract_bondholder_register.py --corp-codes 01051092,01207761
 python 02_Pipeline/extract_revenue_schedule.py --corp-codes 01051092,01207761 --years 2021,2022,2023
 ```
 
-All three support `--force`, `--sample N`, `--sleep S`, `--max-minutes M`. HTML sub-documents are cached to `01_Data/raw/dart/` so re-runs skip already-fetched filings. See `KNOWN_ISSUES.md` KI-014 and KI-015 for known parse-rate limitations.
+All three support `--force`, `--sample N`, `--sleep S`, `--max-minutes M`. HTML sub-documents are cached to `01_Data/raw/dart/` so re-runs skip already-fetched filings.
 
 ### Pipeline Flags
 
