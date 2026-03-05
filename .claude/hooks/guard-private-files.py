@@ -13,6 +13,7 @@ PRIVATE_PATTERNS = [
     "CHANGELOG.md",
     "PRODUCT_VISION.md",
     "company_dives",
+    "NETWORK_FINDINGS.md",
     "00_Reference",
     "PHASE_1_5_PLAN.md",
     "CLAUDE.md",
