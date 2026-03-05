@@ -1383,3 +1383,72 @@ class TestBeneishOutputColsComplete:
             f"beneish_scores.parquet missing expected columns: {missing}. "
             f"Check beneish_screen.py output_cols assertion."
         )
+
+
+# ─── Category N+2: peak_date population guard (Fix A) ────────────────────────
+
+class TestPeakDatePopulation:
+    """
+    Guard for Fix A: run_cb_bw_timelines.py peak_date must not be uniformly null.
+
+    Before Fix A, peak_date was only stored inside `if exercise_cluster_flag:`.
+    Since exercise_cluster_flag never fires (SEIBRO data absent), peak_date was
+    always null. After Fix A, peak_date is computed from price/volume data and
+    stored unconditionally.
+
+    This test skips when cb_bw_summary.csv is absent (runner not yet executed).
+    """
+
+    @pytest.fixture(scope="class")
+    def cb_summary(self):
+        p = pathlib.Path(__file__).resolve().parents[1] / "03_Analysis" / "cb_bw_summary.csv"
+        if not p.exists():
+            pytest.skip("cb_bw_summary.csv not found — run run_cb_bw_timelines.py first")
+        return pd.read_csv(p)
+
+    def test_peak_date_column_exists(self, cb_summary):
+        assert "peak_date" in cb_summary.columns, (
+            "peak_date column missing from cb_bw_summary.csv"
+        )
+
+    def test_peak_date_is_not_all_null(self, cb_summary):
+        """After Fix A, at least some rows must have a non-null peak_date.
+
+        This will still fail if run_cb_bw_timelines.py has not been re-run after
+        Fix A was applied. Re-run the script to regenerate cb_bw_summary.csv.
+        """
+        non_null = cb_summary["peak_date"].notna().sum()
+        assert non_null > 0, (
+            f"peak_date is null for all {len(cb_summary)} rows in cb_bw_summary.csv. "
+            "Re-run: python 03_Analysis/run_cb_bw_timelines.py after Fix A."
+        )
+
+
+# ─── Category N+3: officer network threshold guard (Fix B) ───────────────────
+
+class TestOfficerFlagThreshold:
+    """
+    Guard for Fix B: FLAG_THRESHOLD in run_officer_network.py must be 1.
+
+    Before Fix B the threshold was 2. With max anomaly_score = 1 (no SEIBRO
+    data), all companies fell below the threshold and flagged_company_count = 0
+    for every officer in the network. Fix B lowers the threshold to 1 so that
+    volume-only signals seed the network.
+
+    This test imports the constant directly from the module.
+    """
+
+    def test_flag_threshold_constant_is_one(self):
+        import sys
+        analysis_dir = str(pathlib.Path(__file__).resolve().parents[1] / "03_Analysis")
+        if analysis_dir not in sys.path:
+            sys.path.insert(0, analysis_dir)
+        import run_officer_network as ron
+        assert hasattr(ron, "FLAG_THRESHOLD"), (
+            "FLAG_THRESHOLD constant not found in run_officer_network.py"
+        )
+        assert ron.FLAG_THRESHOLD == 1, (
+            f"FLAG_THRESHOLD={ron.FLAG_THRESHOLD}; expected 1. "
+            "Fix B requires FLAG_THRESHOLD=1 to seed the officer network with "
+            "volume-only flagged companies while SEIBRO repricing data is pending."
+        )

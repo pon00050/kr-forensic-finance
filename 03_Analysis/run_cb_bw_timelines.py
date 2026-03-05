@@ -175,10 +175,12 @@ def score_events(
                     ex_date = pd.to_datetime(str(ex_date_raw)[:8], errors="coerce")
                     if not pd.isna(ex_date) and abs((ex_date - peak_date).days) <= 5:
                         exercise_cluster_flag = True
+        # Always store peak_date — computed from price data regardless of exercise events
+        if peak_date is not None:
+            flag_details["peak_date"] = str(peak_date)
         if exercise_cluster_flag:
             flags.append("exercise_at_peak")
             flag_details["exercise_cluster_flag"] = True
-            flag_details["peak_date"] = str(peak_date) if peak_date is not None else None
 
         # Flag 3: Volume ratio > 3× pre-event baseline
         volume_flag = False

@@ -26,6 +26,11 @@ ROOT = Path(__file__).resolve().parents[1]
 PROCESSED = ROOT / "01_Data" / "processed"
 ANALYSIS = ROOT / "03_Analysis"
 
+# Minimum anomaly_score for a CB/BW event to mark its company as "flagged".
+# Set to 1 (volume-only signal sufficient as network seed).
+# Raise to 2 once SEIBRO repricing data is loaded and multi-flag events exist.
+FLAG_THRESHOLD = 1
+
 try:
     from pyvis.network import Network as PyvisNetwork
     PYVIS_AVAILABLE = True
@@ -74,7 +79,7 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, set, dict, di
     if cb_path.exists():
         df_cb = pd.read_csv(cb_path)
         if "anomaly_score" in df_cb.columns and "corp_code" in df_cb.columns:
-            flagged_companies.update(df_cb[df_cb["anomaly_score"] >= 2]["corp_code"].tolist())
+            flagged_companies.update(df_cb[df_cb["anomaly_score"] >= FLAG_THRESHOLD]["corp_code"].tolist())
 
     timing_path = ANALYSIS / "timing_anomalies.csv"
     if timing_path.exists():

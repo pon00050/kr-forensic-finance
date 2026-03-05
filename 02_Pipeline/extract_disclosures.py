@@ -156,6 +156,53 @@ def _fetch_disclosures_for_company(
     return rows
 
 
+def _fetch_priority_disclosures(
+    priority_corp_codes: list[str],
+    out: Path,
+    bgn_de: str,
+    end_de: str | None,
+    sleep: float,
+) -> pd.DataFrame:
+    """
+    Re-fetch disclosures for a specific list of corp_codes and merge into the
+    existing parquet, overwriting any existing rows for those corp_codes.
+
+    Used when force=False but we need fresh data for specific companies (e.g.
+    Tier 1 companies that were absent from the original extraction run).
+    """
+    api_key = _dart_api_key()
+    _end_de = end_de or datetime.date.today().strftime("%Y%m%d")
+
+    existing = pd.read_parquet(out)
+    # Remove existing rows for priority corps so we can replace them
+    existing = existing[~existing["corp_code"].isin(priority_corp_codes)].copy()
+
+    new_rows: list[dict] = []
+    for i, corp_code in enumerate(priority_corp_codes, 1):
+        corp_code = str(corp_code).zfill(8)
+        log.info(
+            "Priority disclosure fetch %d/%d (corp_code=%s)",
+            i, len(priority_corp_codes), corp_code,
+        )
+        rows = _fetch_disclosures_for_company(corp_code, api_key, bgn_de, _end_de, sleep)
+        new_rows.extend(rows)
+        time.sleep(sleep)
+
+    if new_rows:
+        columns = ["corp_code", "rcept_no", "filed_at", "title", "type", "dart_link"]
+        df_new = pd.DataFrame(new_rows, columns=columns)
+        df_merged = pd.concat([existing, df_new], ignore_index=True)
+        df_merged = df_merged.drop_duplicates(subset=["corp_code", "rcept_no"])
+        df_merged.to_parquet(out, index=False)
+        log.info(
+            "Priority re-fetch: added %d disclosure rows for %d priority corp_codes",
+            len(df_new), len(priority_corp_codes),
+        )
+        return df_merged
+
+    return existing
+
+
 def fetch_disclosures(
     force: bool = False,
     sample: int | None = None,
@@ -163,15 +210,32 @@ def fetch_disclosures(
     max_minutes: float | None = None,
     bgn_de: str = "20190101",
     end_de: str | None = None,
+    priority_corp_codes: list[str] | None = None,
 ) -> pd.DataFrame:
     """
     Fetch disclosure listings for all companies in company_list.parquet.
     Writes 01_Data/processed/disclosures.parquet.
+
+    priority_corp_codes: if provided, always re-fetch these corp_codes even when
+    force=False and the parquet already exists (useful for Tier 1 companies that
+    were absent from the original extraction run).
     """
     out = PROCESSED / "disclosures.parquet"
-    if out.exists() and not force:
+
+    if out.exists() and not force and not priority_corp_codes:
         log.info("disclosures.parquet exists, loading cached (use --force to refresh)")
         return pd.read_parquet(out)
+
+    # When priority_corp_codes are given and force=False, do a targeted re-fetch
+    # for those specific corp_codes, then merge into the existing parquet.
+    if out.exists() and not force and priority_corp_codes:
+        return _fetch_priority_disclosures(
+            priority_corp_codes=priority_corp_codes,
+            out=out,
+            bgn_de=bgn_de,
+            end_de=end_de,
+            sleep=sleep,
+        )
 
     company_list_path = RAW / "company_list.parquet"
     if not company_list_path.exists():
@@ -243,7 +307,18 @@ def main():
         "--end-de", type=str, default=None,
         help="End date YYYYMMDD (default: today)",
     )
+    parser.add_argument(
+        "--priority-corp-codes", type=str, default=None,
+        help="Comma-separated corp_codes to force-fetch even when parquet exists "
+             "(e.g. 01051092,01207761 for Tier 1 companies)",
+    )
     args = parser.parse_args()
+
+    priority = (
+        [c.strip().zfill(8) for c in args.priority_corp_codes.split(",")]
+        if args.priority_corp_codes
+        else None
+    )
 
     fetch_disclosures(
         force=args.force,
@@ -252,6 +327,7 @@ def main():
         max_minutes=args.max_minutes,
         bgn_de=args.bgn_de,
         end_de=args.end_de,
+        priority_corp_codes=priority,
     )
 
 
