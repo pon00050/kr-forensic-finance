@@ -33,7 +33,7 @@ except ImportError:
     PYVIS_AVAILABLE = False
 
 
-def load_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, set]:
+def load_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, set, dict, dict, set]:
     required = ["officer_holdings.parquet"]
     missing = [f for f in required if not (PROCESSED / f).exists()]
     if missing:
@@ -51,6 +51,16 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, set]:
         if (PROCESSED / "corp_ticker_map.parquet").exists()
         else pd.DataFrame()
     )
+
+    # Build lookup dicts from corp_ticker_map
+    if not df_map.empty and "corp_code" in df_map.columns:
+        code_to_name   = dict(zip(df_map["corp_code"].str.zfill(8), df_map["corp_name"]))
+        code_to_ticker = dict(zip(df_map["corp_code"].str.zfill(8), df_map["ticker"]))
+        corp_name_set  = set(df_map["corp_name"])
+    else:
+        code_to_name   = {}
+        code_to_ticker = {}
+        corp_name_set  = set()
 
     flagged_companies: set = set()
 
@@ -77,10 +87,29 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, set]:
         f"{df_oh['officer_name'].nunique():,} individuals. "
         f"Flagged from prior milestones: {len(flagged_companies):,}"
     )
-    return df_oh, df_kftc, df_map, flagged_companies
+    return df_oh, df_kftc, df_map, flagged_companies, code_to_name, code_to_ticker, corp_name_set
 
 
-def build_graph(df_oh: pd.DataFrame, df_kftc: pd.DataFrame, flagged_companies: set) -> nx.DiGraph:
+_CORPORATE_SUFFIXES = [
+    "홀딩스", "주식회사", "(주)", "연금공단", "자산운용",
+    "투자조합", "파트너스", "캐피탈", "펀드", "벤처스",
+]
+
+
+def is_corporate_reporter(name: str, corp_name_set: set) -> bool:
+    """Return True if name is a corporate entity, not a human officer.
+
+    Pass 1: exact match against known corp names from corp_ticker_map.
+    Pass 2: suffix pattern for entities not in the map.
+    Conservative — returns False (human) by default.
+    """
+    if name in corp_name_set:
+        return True
+    return any(s in name for s in _CORPORATE_SUFFIXES)
+
+
+def build_graph(df_oh: pd.DataFrame, df_kftc: pd.DataFrame, flagged_companies: set,
+                code_to_name: dict, code_to_ticker: dict, corp_name_set: set) -> nx.DiGraph:
     G: nx.DiGraph = nx.DiGraph()
 
     df = df_oh.copy()
@@ -90,13 +119,24 @@ def build_graph(df_oh: pd.DataFrame, df_kftc: pd.DataFrame, flagged_companies: s
     df = df[df["corp_code"] != ""]
 
     for person in df["officer_name"].unique():
-        G.add_node(f"person:{person}", label=person, node_type="person", color="#4a90d9")
+        is_corp = is_corporate_reporter(person, corp_name_set)
+        G.add_node(
+            f"person:{person}",
+            label=person,
+            node_type="person",
+            is_corporate=is_corp,
+            color="#f5a623" if is_corp else "#4a90d9",  # orange=corporate, blue=human
+        )
 
     for corp in df["corp_code"].unique():
         is_flagged = corp in flagged_companies
+        corp_padded = str(corp).zfill(8)
+        name = code_to_name.get(corp_padded, corp_padded)
+        ticker = code_to_ticker.get(corp_padded, "")
+        label = f"{name} ({ticker})" if ticker else name
         G.add_node(
             f"corp:{corp}",
-            label=corp,
+            label=label,
             node_type="company",
             flagged=is_flagged,
             color="#e05c5c" if is_flagged else "#aaaaaa",
@@ -131,7 +171,8 @@ def build_graph(df_oh: pd.DataFrame, df_kftc: pd.DataFrame, flagged_companies: s
     return G
 
 
-def compute_centrality(G: nx.DiGraph, flagged_companies: set) -> pd.DataFrame:
+def compute_centrality(G: nx.DiGraph, flagged_companies: set,
+                       code_to_name: dict, code_to_ticker: dict, corp_name_set: set) -> pd.DataFrame:
     if len(G.nodes) == 0:
         return pd.DataFrame()
 
@@ -152,10 +193,15 @@ def compute_centrality(G: nx.DiGraph, flagged_companies: set) -> pd.DataFrame:
             if G.nodes[nbr].get("node_type") == "company"
         ]
         flagged_count = sum(1 for c in companies if c in flagged_companies)
+        company_names = [code_to_name.get(str(c).zfill(8), c) for c in companies]
+        tickers       = [code_to_ticker.get(str(c).zfill(8), "") for c in companies]
         rows.append({
             "person_name": person_name,
+            "is_corporate_reporter": is_corporate_reporter(person_name, corp_name_set),
             "company_count": len(companies),
             "flagged_company_count": flagged_count,
+            "company_names": ", ".join(company_names[:10]),
+            "tickers": ", ".join(t for t in tickers[:10] if t),
             "companies": ", ".join(companies[:10]),
             "betweenness_centrality": round(centrality.get(node, 0.0), 6),
             "appears_in_multiple_flagged": flagged_count >= 2,
@@ -163,7 +209,10 @@ def compute_centrality(G: nx.DiGraph, flagged_companies: set) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     if not df.empty:
-        df = df.sort_values(["flagged_company_count", "betweenness_centrality"], ascending=[False, False])
+        df = df.sort_values(
+            ["is_corporate_reporter", "flagged_company_count", "betweenness_centrality"],
+            ascending=[True, False, False],
+        )
     return df
 
 
@@ -173,8 +222,10 @@ def export(G: nx.DiGraph, df_centrality: pd.DataFrame) -> None:
 
     csv_path = out_dir / "centrality_report.csv"
     # Ensure schema is always written even when no officer data is available
-    _CENTRALITY_COLS = ["person_name", "company_count", "flagged_company_count",
-                        "companies", "betweenness_centrality", "appears_in_multiple_flagged"]
+    _CENTRALITY_COLS = [
+        "person_name", "is_corporate_reporter", "company_count", "flagged_company_count",
+        "company_names", "tickers", "companies", "betweenness_centrality", "appears_in_multiple_flagged",
+    ]
     if df_centrality.empty:
         import pandas as _pd
         df_centrality = _pd.DataFrame(columns=_CENTRALITY_COLS)
@@ -217,12 +268,12 @@ def export(G: nx.DiGraph, df_centrality: pd.DataFrame) -> None:
 
 
 def main() -> None:
-    df_oh, df_kftc, df_map, flagged_companies = load_data()
+    df_oh, df_kftc, df_map, flagged_companies, code_to_name, code_to_ticker, corp_name_set = load_data()
     print("Building network graph...")
-    G = build_graph(df_oh, df_kftc, flagged_companies)
+    G = build_graph(df_oh, df_kftc, flagged_companies, code_to_name, code_to_ticker, corp_name_set)
     print(f"Graph: {G.number_of_nodes():,} nodes, {G.number_of_edges():,} edges")
     print("Computing betweenness centrality...")
-    df_centrality = compute_centrality(G, flagged_companies)
+    df_centrality = compute_centrality(G, flagged_companies, code_to_name, code_to_ticker, corp_name_set)
     export(G, df_centrality)
 
 
