@@ -21,7 +21,7 @@
 | `major_holders.parquet` | 5%+ ownership threshold filings |
 | `bondholder_register.parquet` | CB bondholder names from 사채권자명부 |
 | `revenue_schedule.parquet` | Revenue by customer/segment from 매출명세서 |
-| `bond_isin_map.parquet` | Bond ISINs per corp_code via FSC API (dataset 15043421); required by SEIBRO StockSvc extractor |
+| `bond_isin_map.parquet` | 1,859 validated bond ISINs / 656 corp_codes via FSC API (dataset 15043421); required by SEIBRO StockSvc extractor |
 
 ## What's Next
 
