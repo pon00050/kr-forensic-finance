@@ -33,8 +33,8 @@ _NULL_ISSUE_COLS: dict[str, list[tuple[str, str]]] = {
 
 # Stat test output files: (filename, "MISSING: reason") or (filename, None)
 _STAT_OUTPUT_FILES: list[tuple[str, str | None]] = [
-    ("cluster_peers.csv", None),
     ("peer_clusters.csv", None),
+    ("cluster_silhouette.csv", None),
     ("pca_pc3_scores.csv", None),
     ("pca_beneish_loadings.csv", None),
     ("pca_beneish_variance.csv", None),
