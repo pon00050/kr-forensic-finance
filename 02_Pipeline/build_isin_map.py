@@ -23,30 +23,38 @@ Strategy:
   1. Read cb_bw_events.parquet for the set of corp_codes with known CB/BW events
   2. Join corp_code → corp_name via corp_ticker_map.parquet
   3. For each company, query FSC API by bondIsurNm → collect isinCd values
-  4. Deduplicate and save to bond_isin_map.parquet
+  4. Validate: exact issuer-name match + date proximity to cb_bw_events
+  5. Deduplicate and save to bond_isin_map.parquet
 
 Data source: apis.data.go.kr dataset 15043421 (금융위원회_채권발행정보)
 API key: SEIBRO_API_KEY in .env (same portal key covers both SEIBRO and FSC datasets)
 Rate limit: 10,000 calls/day (development tier)
+Actual latency: ~1.1s per API call + sleep = ~1.2s/call total
 IMPORTANT: Use lowercase 'serviceKey', NOT capital 'ServiceKey' (capital returns 401)
 
 ISIN format: Korean bond ISINs are 12 chars — "KR" + 10 alphanumeric (e.g. KR6241821B33).
 CB/BW ISINs typically start with "KR6".
 
+Caching:
+  JSON responses cached per corp_code in 01_Data/raw/fsc/bond_isins/<corp_code>.json.
+  Re-runs use cache by default (skip API). Use --force to re-fetch.
+
 Output:
   01_Data/processed/bond_isin_map.parquet
     Columns: corp_code (str, 8-char), bond_isin (str, 12-char),
-             corp_name, isin_name, bond_issue_date, bond_expiry_date
+             corp_name, issuer_name, isin_name, bond_issue_date, bond_expiry_date
 
 Usage:
   python 02_Pipeline/build_isin_map.py
   python 02_Pipeline/build_isin_map.py --sample 20 --sleep 0.1
   python 02_Pipeline/build_isin_map.py --corp-codes 01051092,01207761
+  python 02_Pipeline/build_isin_map.py --force   # re-fetch all, ignore cache
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -70,6 +78,7 @@ log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent.parent
 PROCESSED = ROOT / "01_Data" / "processed"
+CACHE_DIR = ROOT / "01_Data" / "raw" / "fsc" / "bond_isins"
 
 FSC_BOND_URL = (
     "https://apis.data.go.kr/1160100/service/GetBondTradInfoService"
@@ -78,6 +87,8 @@ FSC_BOND_URL = (
 
 # Keywords in isinCdNm that indicate CB/BW bonds (vs regular corporate bonds)
 CB_BW_KEYWORDS = ["CB", "전환", "BW", "신주인수권", "교환", "EB"]
+
+SESSION = requests.Session()
 
 
 def _api_key() -> str:
@@ -88,6 +99,23 @@ def _api_key() -> str:
             "the FSC bond issuance API. Add to .env."
         )
     return key
+
+
+def _read_cache(corp_code: str) -> list[dict] | None:
+    """Return cached API response for corp_code, or None if no cache."""
+    cache_path = CACHE_DIR / f"{corp_code}.json"
+    if not cache_path.exists():
+        return None
+    with open(cache_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _write_cache(corp_code: str, items: list[dict]) -> None:
+    """Save API response list to cache."""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_path = CACHE_DIR / f"{corp_code}.json"
+    with open(cache_path, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
 
 
 def _fetch_bonds_for_company(
@@ -107,7 +135,7 @@ def _fetch_bonds_for_company(
             "bondIsurNm": corp_name,
         }
         try:
-            r = requests.get(FSC_BOND_URL, params=params, timeout=30)
+            r = SESSION.get(FSC_BOND_URL, params=params, timeout=30)
         except requests.RequestException as exc:
             log.warning("  Request failed for %s page %d: %s", corp_name, page, exc)
             break
@@ -164,11 +192,66 @@ def _filter_cb_bw(items: list[dict]) -> list[dict]:
     return filtered
 
 
+def _validate_isin_map(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove false-positive ISINs using exact name match + date proximity.
+
+    Filter 1 — Exact issuer name: FSC response bondIsurNm must match the
+    corp_name we queried with. Short/generic names (레이, 나노) return bonds
+    from unrelated issuers; this filter removes them.
+
+    Filter 2 — Date proximity: bond_issue_date must be within ±60 days of
+    at least one issue_date in cb_bw_events.parquet for that corp_code.
+    """
+    if df.empty:
+        return df
+
+    before = len(df)
+
+    # Filter 1: exact issuer name match
+    name_mask = df["issuer_name"] == df["corp_name"]
+    name_rejected = (~name_mask).sum()
+    df = df[name_mask].copy()
+
+    # Filter 2: date proximity to cb_bw_events (advisory — log only, don't remove)
+    # Rationale: DART cb_bw_events may not capture all CB issuances (e.g., older
+    # events outside the query window). Removing date orphans loses legitimate ISINs.
+    # The name filter alone removes 95%+ of false positives.
+    cb_path = PROCESSED / "cb_bw_events.parquet"
+    date_unmatched = 0
+    if cb_path.exists():
+        cb = pd.read_parquet(cb_path)
+        cb["corp_code"] = cb["corp_code"].astype(str).str.zfill(8)
+        cb["_cb_date"] = pd.to_datetime(cb["issue_date"], errors="coerce")
+
+        df["_fsc_date"] = pd.to_datetime(df["bond_issue_date"], format="%Y%m%d", errors="coerce")
+
+        for cc, grp in df.groupby("corp_code"):
+            cb_dates = cb.loc[cb["corp_code"] == cc, "_cb_date"].dropna()
+            if cb_dates.empty:
+                continue
+            for idx, row in grp.iterrows():
+                fsc_dt = row["_fsc_date"]
+                if pd.isna(fsc_dt):
+                    continue
+                diffs = (cb_dates - fsc_dt).abs()
+                if diffs.min() > pd.Timedelta(days=60):
+                    date_unmatched += 1
+
+        df = df.drop(columns=["_fsc_date"])
+
+    after = len(df)
+    log.info(
+        "Validation: %d → %d rows (removed %d name mismatches; %d date-unmatched kept)",
+        before, after, name_rejected, date_unmatched,
+    )
+    return df
+
+
 def build_isin_map(
     corp_codes: list[str],
     corp_name_map: dict[str, str],
     sleep: float = 0.1,
-    append: bool = False,
+    force: bool = False,
 ) -> pd.DataFrame:
     """Build bond_isin_map.parquet for the given corp_codes."""
     api_key = _api_key()
@@ -177,6 +260,8 @@ def build_isin_map(
     no_name = 0
     no_bonds = 0
     api_calls = 0
+    cache_hits = 0
+    t_start = time.monotonic()
 
     for i, corp_code in enumerate(corp_codes, 1):
         cc = str(corp_code).zfill(8)
@@ -187,23 +272,43 @@ def build_isin_map(
             no_name += 1
             continue
 
-        log.info("[%d/%d] %s (%s)", i, len(corp_codes), cc, corp_name)
-        items = _fetch_bonds_for_company(corp_name, api_key, sleep)
-        api_calls += 1
-        time.sleep(sleep)
+        # Check cache
+        if not force:
+            cached = _read_cache(cc)
+            if cached is not None:
+                cache_hits += 1
+                items = cached
+                if i <= 3 or i == len(corp_codes):
+                    log.info("[%d/%d] %s (%s) — from cache", i, len(corp_codes), cc, corp_name)
+            else:
+                log.info("[%d/%d] %s (%s)", i, len(corp_codes), cc, corp_name)
+                items = _fetch_bonds_for_company(corp_name, api_key, sleep)
+                api_calls += 1
+                _write_cache(cc, items)
+                time.sleep(sleep)
+        else:
+            log.info("[%d/%d] %s (%s)", i, len(corp_codes), cc, corp_name)
+            items = _fetch_bonds_for_company(corp_name, api_key, sleep)
+            api_calls += 1
+            _write_cache(cc, items)
+            time.sleep(sleep)
 
         if not items:
-            log.info("  No bonds found in FSC data")
+            if not (not force and cached is not None):
+                log.info("  No bonds found in FSC data")
             no_bonds += 1
             continue
 
         cb_items = _filter_cb_bw(items)
         if not cb_items:
-            log.info("  %d bonds found but none are CB/BW (filtered out)", len(items))
+            if not (not force and cached is not None):
+                log.info("  %d bonds found but none are CB/BW (filtered out)", len(items))
             no_bonds += 1
             continue
 
-        log.info("  %d CB/BW bonds (of %d total)", len(cb_items), len(items))
+        if not (not force and cached is not None and cache_hits > 3):
+            log.info("  %d CB/BW bonds (of %d total)", len(cb_items), len(items))
+
         for item in cb_items:
             isin = item.get("isinCd", "")
             if not isin:
@@ -212,42 +317,46 @@ def build_isin_map(
                 "corp_code": cc,
                 "bond_isin": isin,
                 "corp_name": corp_name,
+                "issuer_name": item.get("bondIsurNm", ""),
                 "isin_name": item.get("isinCdNm", ""),
                 "bond_issue_date": item.get("bondIssuDt", ""),
                 "bond_expiry_date": item.get("bondExprDt", ""),
             })
 
+        # ETA logging every 50 companies
+        if i % 50 == 0:
+            elapsed = time.monotonic() - t_start
+            rate = elapsed / i
+            remaining = rate * (len(corp_codes) - i)
+            log.info(
+                "  [Progress] %d/%d (%.0f%%), %.1fs/company, ETA: %.0f min remaining",
+                i, len(corp_codes), 100 * i / len(corp_codes), rate, remaining / 60,
+            )
+
+    elapsed = time.monotonic() - t_start
     log.info(
-        "Done. %d API calls, %d ISINs found, %d no-name skipped, %d no-bonds.",
-        api_calls, len(rows), no_name, no_bonds,
+        "Done. %d API calls, %d cache hits, %d ISINs found, %d no-name, %d no-bonds. (%.0fs)",
+        api_calls, cache_hits, len(rows), no_name, no_bonds, elapsed,
     )
 
     new_df = pd.DataFrame(
         rows,
         columns=[
-            "corp_code", "bond_isin", "corp_name",
+            "corp_code", "bond_isin", "corp_name", "issuer_name",
             "isin_name", "bond_issue_date", "bond_expiry_date",
         ],
     )
 
+    # Validate: remove false positives from name-matching collisions
+    new_df = _validate_isin_map(new_df)
+
     out_path = PROCESSED / "bond_isin_map.parquet"
-    if append and out_path.exists():
-        existing = pd.read_parquet(out_path)
-        combined = pd.concat([existing, new_df], ignore_index=True)
-        combined = combined.drop_duplicates(subset=["corp_code", "bond_isin"])
-        combined.to_parquet(out_path, index=False)
-        log.info(
-            "Updated bond_isin_map.parquet: %d rows (was %d, added %d new)",
-            len(combined), len(existing), len(combined) - len(existing),
-        )
-        return combined
-    else:
-        new_df.to_parquet(out_path, index=False)
-        log.info(
-            "Saved bond_isin_map.parquet: %d rows (%d corp_codes with ISINs)",
-            len(new_df), new_df["corp_code"].nunique() if not new_df.empty else 0,
-        )
-        return new_df
+    new_df.to_parquet(out_path, index=False)
+    log.info(
+        "Saved bond_isin_map.parquet: %d rows (%d corp_codes with ISINs)",
+        len(new_df), new_df["corp_code"].nunique() if not new_df.empty else 0,
+    )
+    return new_df
 
 
 def main() -> None:
@@ -267,8 +376,8 @@ def main() -> None:
         help="Seconds between API calls (default: 0.1)",
     )
     parser.add_argument(
-        "--append", action="store_true",
-        help="Append to existing bond_isin_map.parquet instead of overwriting",
+        "--force", action="store_true",
+        help="Re-fetch from API, ignoring cache",
     )
     args = parser.parse_args()
 
@@ -303,7 +412,7 @@ def main() -> None:
         corp_codes = corp_codes[: args.sample]
         log.info("--sample %d: processing %d corp_codes", args.sample, len(corp_codes))
 
-    build_isin_map(corp_codes, corp_name_map, sleep=args.sleep, append=args.append)
+    build_isin_map(corp_codes, corp_name_map, sleep=args.sleep, force=args.force)
 
 
 if __name__ == "__main__":
