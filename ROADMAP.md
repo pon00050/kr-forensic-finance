@@ -21,11 +21,11 @@
 | `major_holders.parquet` | 5%+ ownership threshold filings |
 | `bondholder_register.parquet` | CB bondholder names from 사채권자명부 |
 | `revenue_schedule.parquet` | Revenue by customer/segment from 매출명세서 |
-| `bond_isin_map.parquet` | KRX bond ISINs per corp_code; required by SEIBRO StockSvc extractor |
+| `bond_isin_map.parquet` | Bond ISINs per corp_code via FSC API (dataset 15043421); required by SEIBRO StockSvc extractor |
 
 ## What's Next
 
-1. **SEIBRO repricing data** — extractor built; data.go.kr API key applied for; once key arrives, run extractor → re-score CB/BW timelines and officer network
+1. **SEIBRO repricing data** — extractor built; ISIN map now populated via FSC API (session 29); SEIBRO API key pending propagation (~days); once key activates, run extractor → re-score CB/BW timelines and officer network
 2. **Populate paid-tier tables** — run paid-tier extractors at scale for flagged companies
 3. **Statistical analysis layer** — 10 ISL-grade scripts written; S1–S5 complete (session 24); findings in `FINDINGS.md`
 
@@ -55,6 +55,13 @@
 
 *(none — all non-blocked items complete)*
 
+### Completed (Session 28)
+
+| ID | Description | Outcome |
+|---|---|---|
+| S6a | Run `build_isin_map.py --sample 50` | **0 ISINs found** — DART CB/BW filings don't contain bond ISINs; approach invalid; need KRX/SEIBRO alternative |
+| S7 | Expand `labels.csv` to ≥10 rows; run 3 blocked scripts | **15 labels** (10 fraud=1, 5 fraud=0); bootstrap median=-0.75 (CI [-2.55,-0.50], US -1.78 inside); Lasso: DSRI/TATA/SGI/GMI active; RF AUC=0.670 |
+
 ### Completed (Session 26)
 
 | ID | Description | Outcome |
@@ -62,13 +69,17 @@
 | S12 | Fix `extract_seibro_repricing.py` (4 endpoint/param bugs + ISIN join key); write `build_isin_map.py` | **extractor now uses StockSvc/getXrcStkOptionXrcInfoN1 + getXrcStkStatInfoN1 with bondIsin param; `build_isin_map.py` extracts ISINs from DART CB filings via regex** |
 | S12b | Probe `extract_seibro.py` websquare endpoints | All 4 return HTML shell (545 chars, JS redirect) — WebSquare requires browser session; **superseded by data.go.kr REST API** |
 
+### Completed (Session 29)
+
+| ID | Description | Outcome |
+|---|---|---|
+| S6a | Populate `bond_isin_map.parquet` | **RESOLVED.** DART approach failed (ISINs not in filings); switched to FSC 금융위원회 채권발행정보 API (dataset 15043421, `getIssuIssuItemStat`). Full run (session 30): **2,718 ISINs across 685 corp_codes** (of 919 queried). All 5 Tier 1 leads have ISINs. |
+
 ### Blocked (external dependencies)
 
 | ID | Description | Blocked by |
 |---|---|---|
-| S6 | Run `extract_seibro_repricing.py` → re-run `permutation_repricing_peak.py` + `survival_repricing.py` | SEIBRO API key activation (resultCode=99 as of 2026-03-06; key registered 2026-03-05, may need 1–2 business days) |
-| S6a | Run `build_isin_map.py` to populate `bond_isin_map.parquet` (prerequisite for S6) | DART rate limits; run with `--sample 50` first |
-| S7 | Expand `labels.csv` to ≥10 rows → unlock `bootstrap_threshold.py`, `lasso_beneish.py`, `rf_feature_importance.py` | Labeling decision |
+| S6 | Run `extract_seibro_repricing.py` → re-run `permutation_repricing_peak.py` + `survival_repricing.py` | SEIBRO API key activation only (ISIN map blocker resolved — see S6a above) |
 
 ## Open Backlog
 
