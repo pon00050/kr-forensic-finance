@@ -2183,3 +2183,31 @@ class TestQualityModule:
         assert "a:" in output_verbose
         # Normal output should not contain the indented column detail
         assert "    a:" not in output_normal
+
+
+class TestHoldingsFlagJoin:
+    """Guard against date-parsing and join regressions in holdings_flag logic."""
+
+    def test_officer_holdings_date_format_is_iso(self):
+        """officer_holdings date column must be parseable with str[:10] (YYYY-MM-DD)."""
+        if not (PROCESSED / "officer_holdings.parquet").exists():
+            pytest.skip("officer_holdings.parquet not present")
+        oh = pd.read_parquet(PROCESSED / "officer_holdings.parquet")
+        assert "date" in oh.columns
+        # str[:10] must parse as valid dates (not NaT)
+        parsed = pd.to_datetime(oh["date"].astype(str).str[:10], errors="coerce")
+        valid_pct = parsed.notna().mean()
+        assert valid_pct > 0.95, f"Only {valid_pct:.1%} of officer_holdings dates parse via str[:10]"
+
+    def test_holdings_corp_code_overlap_with_cb_bw(self):
+        """Normalized corp_codes must overlap between officer_holdings and cb_bw_events."""
+        if not (PROCESSED / "officer_holdings.parquet").exists():
+            pytest.skip("officer_holdings.parquet not present")
+        if not (PROCESSED / "cb_bw_events.parquet").exists():
+            pytest.skip("cb_bw_events.parquet not present")
+        oh = pd.read_parquet(PROCESSED / "officer_holdings.parquet")
+        cb = pd.read_parquet(PROCESSED / "cb_bw_events.parquet")
+        oh_codes = set(oh["corp_code"].astype(str).str.zfill(8))
+        cb_codes = set(cb["corp_code"].astype(str).str.zfill(8))
+        overlap = len(oh_codes & cb_codes)
+        assert overlap > 100, f"Only {overlap} corp_codes overlap after normalization"

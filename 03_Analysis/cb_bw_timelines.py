@@ -207,7 +207,7 @@ def _score_events(df_cb, df_pv_clean, df_oh, df_map, pd, np, json):
         holdings_flag = False
         df_corp_oh = df_oh[df_oh["corp_code"] == corp_code].copy()
         if not df_corp_oh.empty and "date" in df_corp_oh.columns:
-            df_corp_oh["date"] = pd.to_datetime(df_corp_oh["date"].astype(str).str[:8], errors="coerce")
+            df_corp_oh["date"] = pd.to_datetime(df_corp_oh["date"].astype(str).str[:10], errors="coerce")
             post_ex = df_corp_oh[df_corp_oh["date"] > issue_date]
             pre_ex = df_corp_oh[df_corp_oh["date"] <= issue_date]
             if not post_ex.empty and not pre_ex.empty:
