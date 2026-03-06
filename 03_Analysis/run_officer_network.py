@@ -27,9 +27,9 @@ PROCESSED = ROOT / "01_Data" / "processed"
 ANALYSIS = ROOT / "03_Analysis"
 
 # Minimum anomaly_score for a CB/BW event to mark its company as "flagged".
-# Set to 1 (volume-only signal sufficient as network seed).
-# Raise to 2 once SEIBRO repricing data is loaded and multi-flag events exist.
-FLAG_THRESHOLD = 1
+# Raised to 2 (session 33): holdings_flag now operational; 27 events at flag_count=2
+# across 23 companies without SEIBRO. Multi-flag events exist — threshold now meaningful.
+FLAG_THRESHOLD = 2
 
 try:
     from pyvis.network import Network as PyvisNetwork

@@ -1428,18 +1428,21 @@ class TestPeakDatePopulation:
 
 class TestOfficerFlagThreshold:
     """
-    Guard for Fix B: FLAG_THRESHOLD in run_officer_network.py must be 1.
+    Guard for FLAG_THRESHOLD in run_officer_network.py.
 
-    Before Fix B the threshold was 2. With max anomaly_score = 1 (no SEIBRO
-    data), all companies fell below the threshold and flagged_company_count = 0
-    for every officer in the network. Fix B lowers the threshold to 1 so that
-    volume-only signals seed the network.
+    History:
+    - Fix B (session 13): lowered from 2 → 1 because max anomaly_score was 1
+      (SEIBRO pending; only volume_flag fired). At threshold=2 all companies
+      fell below and flagged_company_count=0 for every officer.
+    - Session 33: raised back to 2 because holdings_flag now fires (date-slice
+      bug fixed in session 32); 27 events have flag_count=2 across 23 companies.
+      Threshold=2 now produces a meaningful high-precision seed set.
 
     Uses ast to parse the constant from source — avoids importing the module
     and triggering a networkx import that may not be installed in CI.
     """
 
-    def test_flag_threshold_constant_is_one(self):
+    def test_flag_threshold_constant_is_two(self):
         import ast
         src_path = (
             pathlib.Path(__file__).resolve().parents[1]
@@ -1455,11 +1458,11 @@ class TestOfficerFlagThreshold:
                         assert isinstance(node.value, ast.Constant), (
                             "FLAG_THRESHOLD must be a literal constant"
                         )
-                        assert node.value.value == 1, (
-                            f"FLAG_THRESHOLD={node.value.value}; expected 1. "
-                            "Fix B requires FLAG_THRESHOLD=1 to seed the officer "
-                            "network with volume-only flagged companies while SEIBRO "
-                            "repricing data is pending."
+                        assert node.value.value == 2, (
+                            f"FLAG_THRESHOLD={node.value.value}; expected 2. "
+                            "Session 33: holdings_flag operational; 27 events at "
+                            "flag_count=2. Threshold=2 produces a high-precision "
+                            "seed set. Do not revert to 1 without updating this test."
                         )
                         return
         raise AssertionError(
