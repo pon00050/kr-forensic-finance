@@ -109,6 +109,12 @@ def _score_events(df_cb, df_pv_clean, df_oh, df_map, pd, np, json):
     else:
         map_lookup = {}
 
+    # Pre-group price data by ticker to avoid repeated full-DataFrame filtering
+    pv_by_ticker = {
+        t: g.sort_values("date").reset_index(drop=True)
+        for t, g in df_pv_clean.groupby("ticker")
+    }
+
     results = []
 
     for _, event in df_cb.iterrows():
@@ -129,11 +135,9 @@ def _score_events(df_cb, df_pv_clean, df_oh, df_map, pd, np, json):
             continue
 
         # Price window: ±60 trading days
-        df_ticker = df_pv_clean[df_pv_clean["ticker"] == ticker].copy()
-        if df_ticker.empty or "close" not in df_ticker.columns:
+        df_ticker = pv_by_ticker.get(ticker)
+        if df_ticker is None or df_ticker.empty or "close" not in df_ticker.columns:
             continue
-
-        df_ticker = df_ticker.sort_values("date").reset_index(drop=True)
         issue_idx = df_ticker["date"].searchsorted(issue_date)
 
         window_start = max(0, issue_idx - 60)
@@ -216,7 +220,7 @@ def _score_events(df_cb, df_pv_clean, df_oh, df_map, pd, np, json):
                     post_shares = pd.to_numeric(post_ex["change_shares"], errors="coerce").sum()
                     if pre_shares > 0 and post_shares < pre_shares * 0.95:
                         holdings_flag = True
-                except Exception:
+                except (ValueError, TypeError):
                     pass
         if holdings_flag:
             flags.append("holdings_decrease")

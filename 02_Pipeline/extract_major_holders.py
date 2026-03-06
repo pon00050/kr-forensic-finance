@@ -30,7 +30,10 @@ import pandas as pd
 import requests
 from dotenv import load_dotenv
 
-from _pipeline_helpers import _dart_api_key, _norm_corp_code
+from _pipeline_helpers import (
+    _dart_api_key, _norm_corp_code,
+    DART_STATUS_OK, DART_STATUS_NOT_FOUND, DART_STATUS_RATE_LIMIT,
+)
 
 load_dotenv()
 
@@ -101,18 +104,18 @@ def _fetch_majorstock(
 
     status = str(data.get("status", ""))
 
-    if status == "020":
+    if status == DART_STATUS_RATE_LIMIT:
         log.warning("DART Error 020 (rate limit) for corp_code=%s — not caching", corp_code)
         return []
 
-    if status == "013":
+    if status == DART_STATUS_NOT_FOUND:
         # No filings — cache empty list
         raw_dir.mkdir(parents=True, exist_ok=True)
         with open(cache_path, "w", encoding="utf-8") as f:
             json.dump([], f)
         return []
 
-    if status != "000":
+    if status != DART_STATUS_OK:
         log.debug("majorstock status=%s for corp_code=%s — skipping", status, corp_code)
         return []
 

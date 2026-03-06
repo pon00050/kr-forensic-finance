@@ -42,6 +42,7 @@ import OpenDartReader
 import pandas as pd
 import requests
 from dotenv import load_dotenv
+from _pipeline_helpers import parse_amount as _parse_amount
 load_dotenv()
 
 try:
@@ -210,7 +211,14 @@ def _last_trading_day_of_year(year: int) -> str:
     return result
 
 
-WICS_SNAPSHOT_DATE = _find_wics_snapshot_date()
+_wics_cache: str | None = None
+
+
+def get_wics_snapshot_date() -> str:
+    global _wics_cache
+    if _wics_cache is None:
+        _wics_cache = _find_wics_snapshot_date()
+    return _wics_cache
 
 
 # ---------------------------------------------------------------------------
@@ -280,20 +288,6 @@ def fetch_company_list(market: str = "KOSDAQ", force: bool = False, rebuild: boo
 # ---------------------------------------------------------------------------
 # Stage 2: Financial statements
 # ---------------------------------------------------------------------------
-
-def _parse_amount(raw) -> float | None:
-    """Clean a DART thstrm_amount string to float. Returns None on failure."""
-    if raw is None:
-        return None
-    s = str(raw).replace(",", "").replace(" ", "").strip()
-    if not s or s in ("nan", "None", "-", ""):
-        return None
-    if s.startswith("(") and s.endswith(")"):
-        s = "-" + s[1:-1]
-    try:
-        return float(s)
-    except ValueError:
-        return None
 
 
 def _finstate_with_backoff(dart, corp_code: str, year: int, fs_div: str):
@@ -497,7 +491,7 @@ def fetch_all_financials(
 # Stage 3: Sector -- WICS
 # ---------------------------------------------------------------------------
 
-def fetch_wics(snapshot_date: str = WICS_SNAPSHOT_DATE, force: bool = False, rebuild: bool = False, year: int | None = None) -> pd.DataFrame:
+def fetch_wics(snapshot_date: str | None = None, force: bool = False, rebuild: bool = False, year: int | None = None) -> pd.DataFrame:
     """
     Fetch WICS industry group memberships for all 25 groups.
     Writes 01_Data/raw/sector/wics.parquet.
@@ -511,6 +505,8 @@ def fetch_wics(snapshot_date: str = WICS_SNAPSHOT_DATE, force: bool = False, reb
     if year is not None:
         snapshot_date = _last_trading_day_of_year(year)
         log.info("fetch_wics: year=%d → snapshot_date=%s", year, snapshot_date)
+    elif snapshot_date is None:
+        snapshot_date = get_wics_snapshot_date()
     out = RAW_SECTOR / "wics.parquet"
     if out.exists() and not force and not rebuild:
         log.info("wics.parquet exists (use --force to refresh)")
@@ -672,8 +668,8 @@ def run(
 ) -> None:
     """Run all stages or a single named stage."""
     if wics_date is not None:
-        global WICS_SNAPSHOT_DATE
-        WICS_SNAPSHOT_DATE = wics_date
+        global _wics_cache
+        _wics_cache = wics_date
         log.info("WICS snapshot date pinned to %s (--wics-date override)", wics_date)
 
     ref_date = _last_trading_day_of_year(end_year)

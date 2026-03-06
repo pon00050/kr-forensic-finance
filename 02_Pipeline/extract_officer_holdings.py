@@ -26,7 +26,10 @@ import pandas as pd
 import requests
 from dotenv import load_dotenv
 
-from _pipeline_helpers import _dart_api_key
+from _pipeline_helpers import (
+    _dart_api_key,
+    DART_STATUS_OK, DART_STATUS_NOT_FOUND, DART_STATUS_RATE_LIMIT,
+)
 
 load_dotenv()
 
@@ -61,11 +64,11 @@ def _fetch_elestock(corp_code: str, api_key: str) -> list[dict]:
         return []
 
     status = str(data.get("status", ""))
-    if status in ("013", "020"):
-        if status == "020":
+    if status in (DART_STATUS_NOT_FOUND, DART_STATUS_RATE_LIMIT):
+        if status == DART_STATUS_RATE_LIMIT:
             log.warning("DART Error 020 (rate limit) for corp_code=%s", corp_code)
         return []
-    if status != "000":
+    if status != DART_STATUS_OK:
         log.debug("elestock status=%s for corp_code=%s — skipping", status, corp_code)
         return []
 

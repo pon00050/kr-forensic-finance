@@ -175,7 +175,7 @@ def fetch_repricing_for_bond(
       {"조정일자": "YYYYMMDD", "조정가액": float}
     """
     params = {
-        "ServiceKey": api_key,
+        "serviceKey": api_key,
         "bondIsin": bond_isin,
         "numOfRows": "100",
         "pageNo": "1",
@@ -237,7 +237,7 @@ def fetch_exercises_for_bond(
       {"권리행사일": "YYYYMMDD"}
     """
     params = {
-        "ServiceKey": api_key,
+        "serviceKey": api_key,
         "bondIsin": bond_isin,
         "numOfRows": "100",
         "pageNo": "1",

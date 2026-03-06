@@ -11,8 +11,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_PROCESSED = _PROJECT_ROOT / "01_Data" / "processed"
+from src._paths import PROJECT_ROOT as _PROJECT_ROOT, PROCESSED_DIR as _PROCESSED
+
 _STAT_OUTPUTS = _PROJECT_ROOT / "03_Analysis" / "statistical_tests" / "outputs"
 
 # Per-table known structural issues (column name → issue description).
@@ -105,33 +105,49 @@ def get_quality(
             ).strftime("%Y-%m-%d"),
         })
 
-    # --- Coverage ---
+    # --- Coverage (reuse DFs from table scan where possible) ---
+    table_cache: dict[str, pd.DataFrame] = {}
+    for t in tables:
+        table_cache[t["name"]] = pd.read_parquet(proc / t["name"])
+
     coverage: dict[str, str] = {}
+    cbe_n: int | None = None
     try:
-        bim = pd.read_parquet(proc / "bond_isin_map.parquet")
-        cbe = pd.read_parquet(proc / "cb_bw_events.parquet")
-        bim_n = bim["corp_code"].nunique()
-        cbe_n = cbe["corp_code"].nunique()
-        coverage["isin"] = f"{bim_n:,} / {cbe_n:,} CB/BW corps ({bim_n / max(cbe_n, 1) * 100:.1f}%)"
+        bim = table_cache.get("bond_isin_map.parquet")
+        cbe = table_cache.get("cb_bw_events.parquet")
+        if bim is not None and cbe is not None:
+            bim_n = bim["corp_code"].nunique()
+            cbe_n = cbe["corp_code"].nunique()
+            coverage["isin"] = f"{bim_n:,} / {cbe_n:,} CB/BW corps ({bim_n / max(cbe_n, 1) * 100:.1f}%)"
+        else:
+            coverage["isin"] = "unavailable"
     except Exception:
         coverage["isin"] = "unavailable"
 
     try:
-        disc = pd.read_parquet(proc / "disclosures.parquet")
-        disc_n = disc["corp_code"].nunique()
-        cbe_n2 = cbe_n if "cbe_n" in dir() else pd.read_parquet(proc / "cb_bw_events.parquet")["corp_code"].nunique()
-        coverage["disclosures"] = f"{disc_n:,} / {cbe_n2:,} CB/BW corps ({disc_n / max(cbe_n2, 1) * 100:.1f}%)"
+        disc = table_cache.get("disclosures.parquet")
+        if disc is not None:
+            disc_n = disc["corp_code"].nunique()
+            if cbe_n is None:
+                cbe2 = table_cache.get("cb_bw_events.parquet")
+                cbe_n = cbe2["corp_code"].nunique() if cbe2 is not None else 0
+            coverage["disclosures"] = f"{disc_n:,} / {cbe_n:,} CB/BW corps ({disc_n / max(cbe_n, 1) * 100:.1f}%)"
+        else:
+            coverage["disclosures"] = "unavailable"
     except Exception:
         coverage["disclosures"] = "unavailable"
 
     try:
-        pv = pd.read_parquet(proc / "price_volume.parquet")
-        ctm = pd.read_parquet(proc / "corp_ticker_map.parquet")
-        pv_tickers = set(pv["ticker"].astype(str).unique())
-        ctm_tickers = set(ctm["ticker"].dropna().astype(str).unique())
-        pv_n = len(pv_tickers & ctm_tickers)
-        ctm_n = len(ctm_tickers)
-        coverage["price"] = f"{pv_n:,} / {ctm_n:,} mapped tickers ({pv_n / max(ctm_n, 1) * 100:.1f}%)"
+        pv = table_cache.get("price_volume.parquet")
+        ctm = table_cache.get("corp_ticker_map.parquet")
+        if pv is not None and ctm is not None:
+            pv_tickers = set(pv["ticker"].astype(str).unique())
+            ctm_tickers = set(ctm["ticker"].dropna().astype(str).unique())
+            pv_n = len(pv_tickers & ctm_tickers)
+            ctm_n = len(ctm_tickers)
+            coverage["price"] = f"{pv_n:,} / {ctm_n:,} mapped tickers ({pv_n / max(ctm_n, 1) * 100:.1f}%)"
+        else:
+            coverage["price"] = "unavailable"
     except Exception:
         coverage["price"] = "unavailable"
 

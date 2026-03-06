@@ -31,6 +31,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from _pipeline_helpers import parse_amount as _parse_amount
 
 logging.basicConfig(
     level=logging.INFO,
@@ -139,22 +140,6 @@ ACCOUNT_SPECS: dict[str, tuple[list[str], list[str]]] = {
         ["영업활동현금흐름", "영업활동으로인한현금흐름"],
     ),
 }
-
-
-def _parse_amount(raw) -> float | None:
-    """Parse a DART thstrm_amount string to float. Returns None on failure."""
-    if raw is None:
-        return None
-    s = str(raw).replace(",", "").replace(" ", "").strip()
-    if not s or s in ("nan", "None", "-", ""):
-        return None
-    # Handle negative parenthetical format: (1234) → -1234
-    if s.startswith("(") and s.endswith(")"):
-        s = "-" + s[1:-1]
-    try:
-        return float(s)
-    except ValueError:
-        return None
 
 
 def _extract_field(

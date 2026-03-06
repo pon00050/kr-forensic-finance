@@ -16,12 +16,14 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
+import logging
 import pandas as pd
-import plotly.graph_objects as go
+
+log = logging.getLogger(__name__)
 
 # ─── Path constants ────────────────────────────────────────────────────────────
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_PROCESSED    = _PROJECT_ROOT / "01_Data" / "processed"
+from src._paths import PROJECT_ROOT as _PROJECT_ROOT, PROCESSED_DIR as _PROCESSED
+
 _ANALYSIS_DIR = _PROJECT_ROOT / "03_Analysis"
 _REPORTS_DIR  = _ANALYSIS_DIR / "reports"
 
@@ -55,7 +57,10 @@ def _load_beneish(corp_code: str) -> pd.DataFrame:
         df = pd.read_parquet(p)
         mask = df["corp_code"].astype(str).str.zfill(8) == corp_code
         return df[mask].sort_values("year").reset_index(drop=True)
-    except Exception:
+    except FileNotFoundError:
+        return pd.DataFrame()
+    except Exception as exc:
+        log.warning("Error loading beneish_scores for %s: %s", corp_code, exc)
         return pd.DataFrame()
 
 
@@ -71,8 +76,10 @@ def _load_company_name(corp_code: str) -> str:
                 val = rows["company_name"].iloc[0]
                 if pd.notna(val) and str(val).strip():
                     return str(val).strip()
-        except Exception:
+        except FileNotFoundError:
             pass
+        except Exception as exc:
+            log.warning("Error loading company name from beneish for %s: %s", corp_code, exc)
     # Try corp_ticker_map
     p2 = _PROCESSED / "corp_ticker_map.parquet"
     if p2.exists():
@@ -86,8 +93,10 @@ def _load_company_name(corp_code: str) -> str:
                         val = rows2[col].iloc[0]
                         if pd.notna(val) and str(val).strip():
                             return str(val).strip()
-        except Exception:
+        except FileNotFoundError:
             pass
+        except Exception as exc:
+            log.warning("Error loading company name from corp_ticker_map for %s: %s", corp_code, exc)
     return corp_code
 
 
@@ -100,7 +109,10 @@ def _load_cb_bw(corp_code: str) -> pd.DataFrame:
             return pd.DataFrame()
         mask = df["corp_code"].astype(str).str.zfill(8) == corp_code
         return df[mask].reset_index(drop=True)
-    except Exception:
+    except FileNotFoundError:
+        return pd.DataFrame()
+    except Exception as exc:
+        log.warning("Error loading cb_bw_summary for %s: %s", corp_code, exc)
         return pd.DataFrame()
 
 
@@ -113,7 +125,10 @@ def _load_timing_anomalies(corp_code: str) -> pd.DataFrame:
             return pd.DataFrame()
         mask = df["corp_code"].astype(str).str.zfill(8) == corp_code
         return df[mask].reset_index(drop=True)
-    except Exception:
+    except FileNotFoundError:
+        return pd.DataFrame()
+    except Exception as exc:
+        log.warning("Error loading timing_anomalies for %s: %s", corp_code, exc)
         return pd.DataFrame()
 
 
@@ -130,7 +145,10 @@ def _load_officer_network(corp_code: str) -> pd.DataFrame:
             if pd.notna(val) else False
         )
         return df[mask].reset_index(drop=True)
-    except Exception:
+    except FileNotFoundError:
+        return pd.DataFrame()
+    except Exception as exc:
+        log.warning("Error loading officer_network for %s: %s", corp_code, exc)
         return pd.DataFrame()
 
 
@@ -144,7 +162,10 @@ def _load_officer_holdings(corp_code: str) -> pd.DataFrame:
             return pd.DataFrame()
         mask = df["corp_code"].astype(str).str.zfill(8) == corp_code
         return df[mask].reset_index(drop=True)
-    except Exception:
+    except FileNotFoundError:
+        return pd.DataFrame()
+    except Exception as exc:
+        log.warning("Error loading officer_holdings for %s: %s", corp_code, exc)
         return pd.DataFrame()
 
 
@@ -158,13 +179,17 @@ def _load_financials(corp_code: str) -> pd.DataFrame:
             return pd.DataFrame()
         mask = df["corp_code"].astype(str).str.zfill(8) == corp_code
         return df[mask].sort_values("year").reset_index(drop=True)
-    except Exception:
+    except FileNotFoundError:
+        return pd.DataFrame()
+    except Exception as exc:
+        log.warning("Error loading company_financials for %s: %s", corp_code, exc)
         return pd.DataFrame()
 
 
 # ─── Chart functions ───────────────────────────────────────────────────────────
 
-def _empty_figure(msg: str = "No data available.") -> go.Figure:
+def _empty_figure(msg: str = "No data available."):
+    import plotly.graph_objects as go
     fig = go.Figure()
     fig.add_annotation(
         text=msg,
@@ -176,13 +201,14 @@ def _empty_figure(msg: str = "No data available.") -> go.Figure:
     return fig
 
 
-def chart_mscore_trend(df: pd.DataFrame) -> go.Figure:
+def chart_mscore_trend(df: pd.DataFrame):
     """Line + markers: X=year, Y=m_score, dashed hline at -1.78."""
     if df.empty or "m_score" not in df.columns or df["m_score"].isna().all():
         return _empty_figure()
     plot_df = df[df["m_score"].notna()].copy()
     if plot_df.empty:
         return _empty_figure()
+    import plotly.graph_objects as go
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=plot_df["year"],
@@ -208,7 +234,7 @@ def chart_mscore_trend(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def chart_component_bar(df: pd.DataFrame) -> go.Figure:
+def chart_component_bar(df: pd.DataFrame):
     """Horizontal bar: most recent year with ≥1 non-NaN component; red if >1.0."""
     if df.empty:
         return _empty_figure()
@@ -224,6 +250,7 @@ def chart_component_bar(df: pd.DataFrame) -> go.Figure:
     if not values:
         return _empty_figure()
     colors = ["#e74c3c" if v > 1.0 else "#4682b4" for v in values]
+    import plotly.graph_objects as go
     fig = go.Figure(go.Bar(
         x=values,
         y=labels,
@@ -243,10 +270,11 @@ def chart_component_bar(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def chart_cb_bw_timeline(df: pd.DataFrame) -> go.Figure:
+def chart_cb_bw_timeline(df: pd.DataFrame):
     """Scatter: X=issue_date, Y=volume_ratio, marker size=flag_count, color=bond_type."""
     if df.empty or "issue_date" not in df.columns:
         return _empty_figure()
+    import plotly.graph_objects as go
     plot_df = df.copy()
     fig = go.Figure()
     if "bond_type" in plot_df.columns:
@@ -296,10 +324,11 @@ def chart_cb_bw_timeline(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def chart_timing_anomalies(df: pd.DataFrame) -> go.Figure:
+def chart_timing_anomalies(df: pd.DataFrame):
     """Scatter: X=filing_date, Y=price_change_pct, color=flag, size=volume_ratio (capped 10x)."""
     if df.empty or "filing_date" not in df.columns:
         return _empty_figure()
+    import plotly.graph_objects as go
     plot_df = df.copy()
     price_col = "price_change_pct" if "price_change_pct" in plot_df.columns else None
     if price_col is None:

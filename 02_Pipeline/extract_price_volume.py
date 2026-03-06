@@ -181,7 +181,7 @@ def fetch_price_volume(
         if max_minutes else None
     )
 
-    all_rows: list[dict] = []
+    frames: list[pd.DataFrame] = []
     total = len(pairs)
 
     for i, ev in enumerate(pairs.itertuples(), 1):
@@ -214,17 +214,17 @@ def fetch_price_volume(
             if df_ohlcv.empty:
                 continue
             df_ohlcv["ticker"] = ticker
-            all_rows.extend(df_ohlcv.to_dict("records"))
+            frames.append(df_ohlcv)
             log.debug("Fetched %d rows for ticker=%s (backend=%s)", len(df_ohlcv), ticker, backend)
         except Exception as exc:
             log.warning("%s error for ticker=%s: %s", backend, ticker, exc)
 
         time.sleep(sleep)
 
-    if not all_rows:
+    if not frames:
         df_out = pd.DataFrame(columns=["ticker", "date", "open", "high", "low", "close", "volume"])
     else:
-        df_out = pd.DataFrame(all_rows)
+        df_out = pd.concat(frames, ignore_index=True)
         # Deduplicate
         if "ticker" in df_out.columns and "date" in df_out.columns:
             df_out = df_out.drop_duplicates(subset=["ticker", "date"])

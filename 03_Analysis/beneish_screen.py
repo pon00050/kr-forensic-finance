@@ -67,14 +67,13 @@ def _load_data(mo, os, pd, Path):
 
         if all([endpoint, key, secret]):
             import duckdb
+            def _esc(v): return str(v).replace("'", "''")
             conn = duckdb.connect()
             conn.execute("INSTALL httpfs; LOAD httpfs;")
-            conn.execute(f"""
-                SET s3_endpoint='{endpoint.replace("https://", "")}';
-                SET s3_access_key_id='{key}';
-                SET s3_secret_access_key='{secret}';
-                SET s3_url_style='path';
-            """)
+            conn.execute(f"SET s3_endpoint='{_esc(endpoint.replace('https://', ''))}';")
+            conn.execute(f"SET s3_access_key_id='{_esc(key)}';")
+            conn.execute(f"SET s3_secret_access_key='{_esc(secret)}';")
+            conn.execute("SET s3_url_style='path';")
             return conn.execute(
                 f"SELECT * FROM 's3://{bucket}/processed/company_financials.parquet'"
             ).df()

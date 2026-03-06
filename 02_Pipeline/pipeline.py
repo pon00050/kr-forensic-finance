@@ -143,7 +143,7 @@ def run_stage_dart(
         ed._apply_sleep_override(sleep)
 
     if wics_date is not None:
-        ed.WICS_SNAPSHOT_DATE = wics_date
+        ed._wics_cache = wics_date
         log.info("WICS snapshot date pinned to %s (--wics-date override)", wics_date)
 
     if corp_code:
@@ -177,7 +177,11 @@ def run_stage_dart(
         out = Path("01_Data/raw/run_summary.json")
         out.parent.mkdir(parents=True, exist_ok=True)
 
-        old = json.load(open(out, encoding="utf-8")) if out.exists() else {}
+        if out.exists():
+            with open(out, encoding="utf-8") as f:
+                old = json.load(f)
+        else:
+            old = {}
         merged_summary = _merge_run_summaries(old, summary)
         with open(out, "w", encoding="utf-8") as f:
             json.dump(merged_summary, f, ensure_ascii=False, indent=2)

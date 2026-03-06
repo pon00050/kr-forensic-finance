@@ -23,9 +23,22 @@
 | `revenue_schedule.parquet` | Revenue by customer/segment from 매출명세서 |
 | `bond_isin_map.parquet` | 1,859 validated bond ISINs / 656 corp_codes via FSC API (dataset 15043421); required by SEIBRO StockSvc extractor |
 
+## Codebase Cleanup — Completed (Session 34)
+
+22 issues addressed across 3 phases (bugs/security, performance, consolidation).
+168 tests pass. No behavior changes — all fixes are internal.
+
+| Phase | Scope | Key changes |
+|---|---|---|
+| A (bugs/security) | 4 items | ServiceKey casing fix (KI-022), DuckDB SQL escaping (KI-023), narrowed except blocks, file handle leak |
+| B (performance) | 5 items | Pre-grouped price lookups (~900M comparisons eliminated), lazy WICS probe, DataFrame concat, cached parquet reads, lazy plotly import |
+| C (consolidation) | 5 items | 4 duplicate functions → `_pipeline_helpers.py`, DART status constants, `src/constants.py`, `src/_paths.py`, removed 13 redundant `sys.path.insert` |
+
+See `CHANGELOG.md` session 34 entries and `KNOWN_ISSUES.md` KI-022 through KI-024 for full details.
+
 ## What's Next
 
-1. **SEIBRO repricing data** — extractor built; ISIN map now populated via FSC API (session 29); SEIBRO API key pending propagation (~days); once key activates, run extractor → re-score CB/BW timelines and officer network
+1. **SEIBRO repricing data** — extractor built; ISIN map populated (1,859 ISINs / 656 corps); `holdings_flag` fixed (session 32, now 156 events / 27 double-flagged); SEIBRO API key still pending (re-probed session 32, still `resultCode=99`); once key activates, full activation runbook in KI-012
 2. **Populate paid-tier tables** — run paid-tier extractors at scale for flagged companies
 3. **Statistical analysis layer** — 10 ISL-grade scripts written; S1–S5 complete (session 24); findings in `FINDINGS.md`
 
@@ -33,7 +46,7 @@
 
 | ID | Description | Outcome |
 |---|---|---|
-| S9 | Cross-screen: PC3 top-decile × flagged CB/BW events | **139 double-flagged company-years; 112 unique secondary companies** — all have flag_count=1 (volume_surge only); 0 high-priority secondaries (flag_count≥2 + PC3≥95th); S8 runs at default scope; `double_flagged_companies.csv` produced |
+| S9 | Cross-screen: PC3 top-decile × flagged CB/BW events | **170 double-flagged company-years; 143 unique secondary companies** (updated session 33 with holdings_flag live); **8 high-priority secondaries** (PC3≥95th AND flag_count≥2) — was 0 in all prior runs; top lead: 캔버스엔 (00550082, PC3_rank 0.9984) |
 | S8 | Run `extract_depreciation_schedule.py` for 5 Tier 1 leads | All 15 rows = parse_error or no_filing; DART sub_docs keyword matching returns wrong table type for these companies; Category 20 tests flip from 8 skipped → **8 passed**; FINDINGS.md §4 updated with root cause |
 | S10a | Extract disclosures for 50 unflagged control companies | `disclosures.parquet` expanded from 8 → **58 corp_codes** (3,581 → 27,486 rows; +23,905 control rows) |
 | S10b | Rebuild FDR null from control disclosures × price data | Control null: 2,000 quiet events; **687/687 test events trivially survive BH** — KI-021 diagnosed: pre-filtering makes any clean null give p≈0; valid test requires unfiltered input → S11 |

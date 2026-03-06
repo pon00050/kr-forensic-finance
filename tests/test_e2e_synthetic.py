@@ -28,8 +28,7 @@ import pandas as pd
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "02_Pipeline"))
-sys.path.insert(0, str(ROOT))
+# conftest.py already adds 02_Pipeline to sys.path
 
 
 # ---------------------------------------------------------------------------

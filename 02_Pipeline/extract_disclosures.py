@@ -33,7 +33,11 @@ import pandas as pd
 import requests
 from dotenv import load_dotenv
 
-from _pipeline_helpers import _dart_api_key
+from _pipeline_helpers import (
+    _dart_api_key,
+    fetch_with_backoff as _fetch_with_backoff,
+    DART_STATUS_OK, DART_STATUS_NOT_FOUND,
+)
 
 load_dotenv()
 
@@ -54,33 +58,6 @@ DART_LIST_URL = "https://opendart.fss.or.kr/api/list.json"
 SLEEP_DEFAULT = 0.5
 PAGE_COUNT = 100
 DISCLOSURE_COLS = ["corp_code", "rcept_no", "filed_at", "title", "type", "dart_link"]
-
-
-
-def _fetch_with_backoff(
-    url: str, params: dict, max_retries: int = 4, base_delay: float = 2.0
-) -> dict:
-    """GET request with exponential backoff on DART Error 020 (rate limit)."""
-    delays = [base_delay * (2**i) for i in range(max_retries)]
-    last_exc: Exception | None = None
-    for attempt, delay in enumerate([0.0] + delays):
-        if delay:
-            log.warning(
-                "DART rate limit — retrying in %.0fs (attempt %d/%d)",
-                delay, attempt, max_retries,
-            )
-            time.sleep(delay)
-        try:
-            resp = requests.get(url, params=params, timeout=30)
-            data = resp.json()
-            if str(data.get("status", "")) == "020":
-                raise Exception("Error 020 rate limit")
-            return data
-        except Exception as exc:
-            last_exc = exc
-            if "020" not in str(exc):
-                raise
-    raise last_exc  # type: ignore[misc]
 
 
 def _fetch_disclosures_for_company(
@@ -110,9 +87,9 @@ def _fetch_disclosures_for_company(
             break
 
         status = str(data.get("status", ""))
-        if status == "013":
+        if status == DART_STATUS_NOT_FOUND:
             break  # no filings — normal
-        if status != "000":
+        if status != DART_STATUS_OK:
             log.debug("list.json status=%s for corp_code=%s — skipping", status, corp_code)
             break
 

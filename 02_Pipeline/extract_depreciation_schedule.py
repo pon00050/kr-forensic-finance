@@ -48,6 +48,7 @@ from _pipeline_helpers import (
     _detect_unit_multiplier,
     _norm_corp_code,
     _parse_krw,
+    fetch_annual_report_rcept_no as _fetch_annual_report_rcept_no,
 )
 
 load_dotenv()
@@ -93,34 +94,6 @@ REQUIRED_COLS = [
 
 
 # ── DART chain ────────────────────────────────────────────────────────────────
-
-def _fetch_annual_report_rcept_no(
-    corp_code: str,
-    dart,
-    year: int,
-) -> str | None:
-    """Find 사업보고서 receipt number for a given fiscal year."""
-    bgn_de = f"{year}0401"
-    end_de = f"{year + 1}0630"
-    try:
-        df = dart.list(corp_code, start=bgn_de, end=end_de, kind="A")
-    except Exception as exc:
-        log.debug("dart.list failed for corp_code=%s year=%d: %s", corp_code, year, exc)
-        return None
-
-    if df is None or len(df) == 0:
-        return None
-
-    mask = (
-        df["report_nm"].str.contains("사업보고서", na=False)
-        & ~df["report_nm"].str.contains("반기|분기|수정", na=False)
-    )
-    annual = df[mask]
-    if len(annual) == 0:
-        return None
-
-    annual = annual.sort_values("rcept_dt", ascending=False)
-    return str(annual.iloc[0]["rcept_no"]).strip()
 
 
 def _fetch_depreciation_html(

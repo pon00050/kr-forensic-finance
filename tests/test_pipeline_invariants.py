@@ -638,9 +638,7 @@ class TestRunSummaryMerge:
     def _get_fn(self):
         # Add pipeline dir to path so pipeline.py can be imported
         import sys
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
+        # conftest.py adds 02_Pipeline to sys.path
         from pipeline import _merge_run_summaries
         return _merge_run_summaries
 
@@ -688,9 +686,7 @@ class TestTransformUnits:
 
     def _get_fns(self):
         import sys
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
+        # conftest.py adds 02_Pipeline to sys.path
         import transform as tr
         return tr._extract_lt_debt, tr._detect_expense_method
 
@@ -823,9 +819,7 @@ class TestWicsSnapshotDate:
 
     def _get_module(self):
         import sys
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
+        # conftest.py adds 02_Pipeline to sys.path
         import extract_dart as ed
         return ed
 
@@ -958,9 +952,7 @@ class TestMatchMethodLineage:
     def test_extract_field_returns_tuple(self):
         """_extract_field() must return (value, method) tuple in all cases."""
         import sys
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
+        # conftest.py adds 02_Pipeline to sys.path
         import transform as tr
 
         # (a) exact account_id match → ("exact_id")
@@ -1056,9 +1048,7 @@ class TestCbBwSchema:
     def test_parse_cb_response_status_013_returns_empty(self):
         """Parser with status 013 (no data) must return empty list."""
         import sys
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
+        # conftest.py adds 02_Pipeline to sys.path
         try:
             import extract_cb_bw as ecb
         except ImportError:
@@ -1071,9 +1061,7 @@ class TestCbBwSchema:
     def test_parse_cb_response_valid_returns_rows(self):
         """Parser with valid response returns rows with expected fields."""
         import sys
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
+        # conftest.py adds 02_Pipeline to sys.path
         try:
             import extract_cb_bw as ecb
         except ImportError:
@@ -1313,12 +1301,6 @@ class TestDataQualityAnomalies:
 class TestMergeRunSummaries:
     """_merge_run_summaries schema contract and safety tests (KI-008)."""
 
-    @pytest.fixture(autouse=True)
-    def _setup_pipeline_path(self):
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
-
     def _make_summary(self, **overrides) -> dict:
         base = {
             "total_companies": 10,
@@ -1526,11 +1508,7 @@ class TestMajorHoldersApiHandling:
     Uses monkeypatched requests — no network calls.
     """
 
-    @pytest.fixture(autouse=True)
-    def _add_pipeline_to_path(self):
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
+
 
     def test_status_013_returns_empty_and_caches(self, tmp_path, monkeypatch):
         """Status 013 (no filings) → empty list returned + empty cache written."""
@@ -1657,11 +1635,7 @@ class TestBondholderRegisterSchema:
 class TestBondholderParseLogic:
     """Unit tests for bondholder HTML parsing — no network calls."""
 
-    @pytest.fixture(autouse=True)
-    def _add_pipeline_to_path(self):
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
+
 
     def _make_html_table(self, headers: list[str], rows: list[list]) -> str:
         header_cells = "".join(f"<th>{h}</th>" for h in headers)
@@ -1788,11 +1762,7 @@ class TestRevenueScheduleSchema:
 class TestRevenueParseLogic:
     """Unit tests for revenue schedule HTML parsing — no network calls."""
 
-    @pytest.fixture(autouse=True)
-    def _add_pipeline_to_path(self):
-        pipeline_dir = str(ROOT / "02_Pipeline")
-        if pipeline_dir not in sys.path:
-            sys.path.insert(0, pipeline_dir)
+
 
     def _make_html_table(self, headers: list[str], rows: list[list]) -> str:
         header_cells = "".join(f"<th>{h}</th>" for h in headers)

@@ -31,7 +31,11 @@ import pandas as pd
 import requests
 from dotenv import load_dotenv
 
-from _pipeline_helpers import _dart_api_key, _norm_corp_code
+from _pipeline_helpers import (
+    _dart_api_key, _norm_corp_code,
+    fetch_with_backoff as _fetch_with_backoff,
+    DART_STATUS_NOT_FOUND, DART_STATUS_OK,
+)
 
 load_dotenv()
 
@@ -66,9 +70,9 @@ def _parse_dart_response(
     bond_type must be 'CB' or 'BW'.
     """
     status = str(data.get("status", ""))
-    if status == "013":
+    if status == DART_STATUS_NOT_FOUND:
         return []
-    if status not in ("000", ""):
+    if status not in (DART_STATUS_OK, ""):
         log.warning("Unexpected DART status %s for corp_code=%s bond_type=%s", status, corp_code, bond_type)
         return []
 
@@ -103,29 +107,6 @@ def _parse_dart_response(
         })
 
     return rows
-
-
-def _fetch_with_backoff(
-    url: str, params: dict, max_retries: int = 4, base_delay: float = 2.0
-) -> dict:
-    """GET request with exponential backoff on DART Error 020 (rate limit)."""
-    delays = [base_delay * (2 ** i) for i in range(max_retries)]
-    last_exc: Exception | None = None
-    for attempt, delay in enumerate([0.0] + delays):
-        if delay:
-            log.warning("DART rate limit — retrying in %.0fs (attempt %d/%d)", delay, attempt, max_retries)
-            time.sleep(delay)
-        try:
-            resp = requests.get(url, params=params, timeout=30)
-            data = resp.json()
-            if str(data.get("status", "")) == "020":
-                raise Exception("Error 020 rate limit")
-            return data
-        except Exception as exc:
-            last_exc = exc
-            if "020" not in str(exc):
-                raise
-    raise last_exc  # type: ignore[misc]
 
 
 def build_scoped_universe(

@@ -12,8 +12,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_PROCESSED = _PROJECT_ROOT / "01_Data" / "processed"
+from src._paths import PROJECT_ROOT as _PROJECT_ROOT, PROCESSED_DIR as _PROCESSED
+
 _RUN_SUMMARY = _PROJECT_ROOT / "01_Data" / "raw" / "run_summary.json"
 
 ARTIFACTS: list[tuple[str, str]] = [

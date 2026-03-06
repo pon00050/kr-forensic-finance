@@ -57,6 +57,7 @@ from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
+from _pipeline_helpers import write_json as _write_json
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,12 +83,6 @@ HEADERS = {
 
 SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
-
-
-def _write_json(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2, default=str)
 
 
 def _get(url: str, params: dict | None = None, timeout: int = 15) -> requests.Response:
