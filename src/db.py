@@ -126,11 +126,8 @@ def read_table(
     params: list = [path_str]
 
     if corp_code is not None:
-        # Check if table has corp_code column before filtering
-        schema_sql = "SELECT column_name FROM (DESCRIBE SELECT * FROM read_parquet(?))"
-        schema_df = query(schema_sql, [path_str])
-        if schema_df.empty or "corp_code" not in schema_df["column_name"].values:
-            return pd.DataFrame()
+        # Add WHERE filter; query() returns empty DataFrame if corp_code column
+        # doesn't exist (DuckDB column-not-found error is caught by exception handler).
         where_parts.append("LPAD(CAST(corp_code AS VARCHAR), 8, '0') = ?")
         params.append(corp_code)
 

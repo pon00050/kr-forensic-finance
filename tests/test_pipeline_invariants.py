@@ -2450,9 +2450,9 @@ class TestDuckDBQueryContracts:
 
     def test_query_raw_sql(self, tmp_path):
         """Low-level query() with params executes correctly."""
-        from src.db import query
+        from src.db import query, to_duckdb_path
         path = self._write_test_parquet(tmp_path)
-        path_str = str(path).replace("\\", "/")
+        path_str = to_duckdb_path(path)
         result = query(
             "SELECT * FROM read_parquet(?) WHERE year >= ?",
             [path_str, 2022],

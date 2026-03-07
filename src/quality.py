@@ -15,7 +15,6 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 from src._paths import PROJECT_ROOT as _PROJECT_ROOT, PROCESSED_DIR as _PROCESSED
-from src.db import to_duckdb_path as _dpath
 
 _STAT_OUTPUTS = _PROJECT_ROOT / "03_Analysis" / "statistical_tests" / "outputs"
 
@@ -66,6 +65,7 @@ def get_quality(
     # Single DuckDB connection for the entire scan — one connection open/close
     # instead of one per table, reducing overhead from O(N tables) to O(1).
     import duckdb
+    from src.db import to_duckdb_path as _dpath, query as _db_query
     tables = []
     con = duckdb.connect()
     try:
@@ -145,8 +145,6 @@ def get_quality(
         con.close()
 
     # --- Coverage (DuckDB aggregate queries — no full DataFrame loads) ---
-    from src.db import query as _db_query
-
     coverage: dict[str, str] = {}
     cbe_n: int | None = None
 
