@@ -60,6 +60,10 @@ packages = ["02_Pipeline", "03_Analysis", "src"]
 dev = [
     "pytest>=8.0.0",
 ]
+hosted = [
+    "finance-datareader",
+    "yfinance",
+]
 
 [tool.uv]
 compile-bytecode = true

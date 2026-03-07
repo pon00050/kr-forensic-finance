@@ -65,6 +65,7 @@ python 03_Analysis/beneish_screen.py   # compute M-scores → beneish_scores.par
 krff analyze                           # print score summary
 krff charts                            # write 03_Analysis/beneish_viz.html
 krff status                            # show artifact inventory (rows, sizes, dates)
+krff run --stage cb_bw --backend fdr    # use FinanceDataReader backend for OHLCV
 krff serve                             # start HTTP API on http://127.0.0.1:8000 (Swagger UI at /docs)
 krff monitor --once                    # poll data sources once (Phase 3 stub)
 krff alerts                            # show recent alerts (Phase 3 stub)

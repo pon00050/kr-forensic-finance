@@ -218,4 +218,12 @@ Multi-agent design (Phase 4 target):
 |---|---|---|---|
 | PR5 | Historical backfill 2014–2018 | 4 | Medium |
 | ~~A1~~ | ~~Automate recurring data refresh~~ — **Complete (Session 38):** `krff refresh` command added to `cli.py`; runs 6 stages in sequence (DART → transform → beneish_screen → cb_bw → timing → network); `--sample N` and `--skip-analysis` flags | 2 | Low |
-| I1 | Verify PyKRX from hosted IPs | 5 | Low |
+| I1 | Verify PyKRX from hosted IPs — **Infrastructure ready (Session 49):** `--backend` option added to `krff run`/`krff refresh`; `finance-datareader`+`yfinance` as `[hosted]` optional deps; `test-hosted-backends.yml` workflow_dispatch CI workflow; trigger from GitHub Actions UI to verify | 5 | Low |
+| ~~DQ1~~ | ~~XBRL unit-scale corrections~~ — **Complete (Session 48):** frmtrm_amount cross-check confirmed neither company is a unit error; `BENEISH_EXTREME_OUTLIERS` frozenset added to `src/constants.py`; 3 Category 30 tests added; 216 pass | 1 | Low |
+
+**DQ1 outcome (Session 48):** Cross-checked both flagged companies via DART `frmtrm_amount` (prior-year restated column in the next year's raw parquet). Neither is a unit-scale error:
+
+- **피씨엘 (01051092) 2020:** 2021 filing confirms `frmtrm(2020)` = 53,682,669,587 (matches stored value exactly). Genuine COVID-19 diagnostics revenue explosion from near-zero 2019 base (35,811,000 KRW confirmed in 2020 filing `frmtrm`). SGI=1,499 and M-score=1,335 are mathematically correct but uninformative at this base scale. **No correction added.**
+- **프레스티지바이오로직스 (01258428) 2022/2023:** 2023 filing confirms `frmtrm(2022)` = 15,565,702 (matches stored value exactly). Genuine revenue volatility. **No correction added.**
+
+Both entries added to `BENEISH_EXTREME_OUTLIERS` in `src/constants.py` for exclusion from threshold calibration. Stats scripts should filter `beneish_scores` by this constant before any distribution-based calibration.

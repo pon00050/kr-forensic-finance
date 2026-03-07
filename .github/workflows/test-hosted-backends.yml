@@ -1,0 +1,78 @@
+name: I1 — Test OHLCV backends from hosted IP
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: "Backend to test"
+        required: true
+        default: "fdr"
+        type: choice
+        options:
+          - pykrx
+          - fdr
+          - yfinance
+      sample:
+        description: "Number of events to fetch"
+        required: false
+        default: "1"
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --extra hosted --extra dev
+      - name: Create minimal test data
+        run: |
+          uv run python -c "
+          import pandas as pd, pathlib
+          raw = pathlib.Path('01_Data/raw')
+          proc = pathlib.Path('01_Data/processed')
+          raw.mkdir(parents=True, exist_ok=True)
+          proc.mkdir(parents=True, exist_ok=True)
+          # Minimal company_list with a real KOSDAQ ticker
+          pd.DataFrame({
+              'corp_code': ['00126380'],
+              'corp_name': ['NAVER'],
+              'stock_code': ['035420'],
+          }).to_parquet(raw / 'company_list.parquet', index=False)
+          # Minimal CB/BW event for NAVER (arbitrary date)
+          pd.DataFrame({
+              'corp_code': ['00126380'],
+              'corp_name': ['NAVER'],
+              'type': ['CB'],
+              'issue_date': ['2023-06-01'],
+              'amount': [10000000000],
+              'source': ['test'],
+          }).to_parquet(proc / 'cb_bw_events.parquet', index=False)
+          print('Test data created')
+          "
+      - name: Fetch OHLCV via ${{ inputs.backend }}
+        run: |
+          uv run python 02_Pipeline/extract_price_volume.py \
+            --backend ${{ inputs.backend }} \
+            --sample ${{ inputs.sample }} \
+            --force
+      - name: Verify output
+        run: |
+          uv run python -c "
+          import pandas as pd, pathlib
+          p = pathlib.Path('01_Data/processed/price_volume.parquet')
+          if p.exists():
+              df = pd.read_parquet(p)
+              print(f'SUCCESS: {len(df)} rows fetched via ${{ inputs.backend }}')
+              if len(df) > 0:
+                  print(df.head())
+                  print('BACKEND WORKS FROM HOSTED IP')
+              else:
+                  print('WARNING: 0 rows — backend may be blocked from this IP')
+                  exit(1)
+          else:
+              print('FAIL: no price_volume.parquet produced')
+              exit(1)
+          "

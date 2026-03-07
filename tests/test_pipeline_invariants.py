@@ -2503,3 +2503,53 @@ class TestDuckDBPathHelper:
         result = to_duckdb_path(p)
         assert isinstance(result, str)
         assert "\\" not in result
+
+
+# ---------------------------------------------------------------------------
+# Category 30 — Beneish extreme outlier exclusions (DQ1)
+# ---------------------------------------------------------------------------
+
+class TestBeneishExtremeOutliers:
+    """Guard that all m_score > 10 outliers are documented in BENEISH_EXTREME_OUTLIERS.
+
+    Batch-classified via DART frmtrm_amount cross-check (Session 48). The constant
+    covers 33 company-years: 23 DART_CONFIRMED, 4 DART_RESTATED, 6 UNVERIFIABLE.
+    See 00_Reference/37_Extreme_Outlier_Classification.md for full methodology.
+    """
+
+    def test_constant_exists(self):
+        """BENEISH_EXTREME_OUTLIERS must be importable from src.constants."""
+        from src.constants import BENEISH_EXTREME_OUTLIERS
+        assert isinstance(BENEISH_EXTREME_OUTLIERS, frozenset)
+
+    def test_covers_all_extreme_outliers(self):
+        """Every m_score > 10 row in beneish_scores must be in the exclusion set."""
+        from src.constants import BENEISH_EXTREME_OUTLIERS
+        scores_path = PROCESSED / "beneish_scores.parquet"
+        if not scores_path.exists():
+            pytest.skip("beneish_scores.parquet not present")
+        df = pd.read_parquet(scores_path)
+        extreme = df[df["m_score"] > 10]
+        missing = []
+        for _, r in extreme.iterrows():
+            key = (r["corp_code"], int(r["year"]))
+            if key not in BENEISH_EXTREME_OUTLIERS:
+                missing.append(key)
+        assert not missing, (
+            f"{len(missing)} extreme outliers not in BENEISH_EXTREME_OUTLIERS: {missing[:5]}"
+        )
+
+    def test_minimum_count(self):
+        """The constant must have at least 33 entries (the known population)."""
+        from src.constants import BENEISH_EXTREME_OUTLIERS
+        assert len(BENEISH_EXTREME_OUTLIERS) >= 33, (
+            f"Expected >= 33, got {len(BENEISH_EXTREME_OUTLIERS)}"
+        )
+
+    def test_dq1_entries_present(self):
+        """The original DQ1-investigated entries must remain in the constant."""
+        from src.constants import BENEISH_EXTREME_OUTLIERS
+        for entry in [("01051092", 2020), ("01258428", 2022), ("01258428", 2023)]:
+            assert entry in BENEISH_EXTREME_OUTLIERS, (
+                f"DQ1 entry {entry} missing from BENEISH_EXTREME_OUTLIERS"
+            )

@@ -236,3 +236,42 @@ def test_alerts_stub_exits_zero():
     result = runner.invoke(app, ["alerts"])
     assert result.exit_code == 0, f"Expected exit 0:\n{result.output}"
     assert "stub" in result.output.lower() or "not yet implemented" in result.output.lower()
+
+
+# ─── I1: --backend option tests ──────────────────────────────────────────────
+
+
+def test_run_backend_help():
+    """krff run --help shows --backend option."""
+    result = runner.invoke(app, ["run", "--help"])
+    assert result.exit_code == 0
+    assert "--backend" in result.output
+
+
+def test_run_invalid_backend():
+    """krff run --backend invalid exits 2."""
+    result = runner.invoke(app, ["run", "--backend", "invalid"])
+    assert result.exit_code == 2, f"Expected exit 2:\n{result.output}"
+
+
+def test_run_valid_backends_accepted(monkeypatch):
+    """krff run --backend fdr/yfinance are accepted (pipeline call is mocked)."""
+    import src.pipeline as sp
+    monkeypatch.setattr(sp, "run_pipeline", lambda **kw: None)
+
+    for backend in ("fdr", "yfinance", "pykrx"):
+        result = runner.invoke(app, ["run", "--stage", "cb_bw", "--backend", backend])
+        assert result.exit_code == 0, f"--backend {backend} failed:\n{result.output}"
+
+
+def test_refresh_backend_help():
+    """krff refresh --help shows --backend option."""
+    result = runner.invoke(app, ["refresh", "--help"])
+    assert result.exit_code == 0
+    assert "--backend" in result.output
+
+
+def test_refresh_invalid_backend():
+    """krff refresh --backend bogus exits 2."""
+    result = runner.invoke(app, ["refresh", "--backend", "bogus"])
+    assert result.exit_code == 2, f"Expected exit 2:\n{result.output}"

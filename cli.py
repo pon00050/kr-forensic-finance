@@ -55,6 +55,7 @@ def run(
     wics_date: Optional[str] = typer.Option(None, help="WICS snapshot date (YYYYMMDD)"),
     scoped: bool = typer.Option(False, "--scoped", help="Limit cb_bw stage to top-N flagged"),
     top_n: int = typer.Option(100, help="Top-N for scoped cb_bw stage"),
+    backend: str = typer.Option("pykrx", help="OHLCV backend: pykrx (default), fdr, or yfinance"),
 ) -> None:
     """Run the ETL pipeline (DART extraction + transform)."""
     if market.upper() not in ("KOSDAQ", "KOSPI"):
@@ -74,6 +75,9 @@ def run(
         raise typer.BadParameter(f"top_n must be >= 1, got {top_n}", param_hint="'--top-n'")
     if wics_date is not None and (len(wics_date) != 8 or not wics_date.isdigit()):
         raise typer.BadParameter(f"wics_date must be 8 digits (YYYYMMDD), got {wics_date!r}", param_hint="'--wics-date'")
+    _valid_backends = ("pykrx", "fdr", "yfinance")
+    if backend not in _valid_backends:
+        raise typer.BadParameter(f"backend must be one of {_valid_backends}, got {backend!r}", param_hint="'--backend'")
 
     from src.pipeline import run_pipeline
 
@@ -91,6 +95,7 @@ def run(
             wics_date=wics_date,
             scoped=scoped,
             top_n=top_n,
+            backend=backend,
         )
     except Exception as exc:
         typer.echo(f"Pipeline failed: {exc}", err=True)
@@ -194,6 +199,7 @@ def quality(
 def refresh(
     sample: Optional[int] = typer.Option(None, help="Limit to N companies for each stage (smoke test: --sample 1)"),
     skip_analysis: bool = typer.Option(False, "--skip-analysis", help="Skip Phase 2 runner scripts (cb_bw, timing, network)"),
+    backend: str = typer.Option("pykrx", help="OHLCV backend: pykrx (default), fdr, or yfinance"),
 ) -> None:
     """Re-run the full data pipeline and analysis in sequence.
 
@@ -211,6 +217,9 @@ def refresh(
     --sample is for API quota smoke-testing only; production scoring requires full output.
     """
     _require_positive_sample(sample)
+    _valid_backends = ("pykrx", "fdr", "yfinance")
+    if backend not in _valid_backends:
+        raise typer.BadParameter(f"backend must be one of {_valid_backends}, got {backend!r}", param_hint="'--backend'")
 
     import subprocess
 

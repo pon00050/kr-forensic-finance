@@ -207,6 +207,7 @@ def run_stage_cb_bw(
     max_minutes: float | None = None,
     scoped: bool = False,
     top_n: int = 100,
+    backend: str = "pykrx",
 ) -> None:
     """Phase 2: fetch CB/BW events → price/volume → officer holdings."""
     import extract_cb_bw as ecb
@@ -224,7 +225,7 @@ def run_stage_cb_bw(
     ecb.fetch_cb_bw_events(force=force, sample=sample, sleep=_sleep, max_minutes=max_minutes, scoped=scoped, top_n=top_n)
 
     log.info("=== Stage: cb_bw (price/volume) ===")
-    epv.fetch_price_volume(force=force, sample=sample, sleep=_sleep, max_minutes=max_minutes)
+    epv.fetch_price_volume(force=force, sample=sample, sleep=_sleep, max_minutes=max_minutes, backend=backend)
 
     log.info("=== Stage: cb_bw (officer holdings) ===")
     eoh.fetch_officer_holdings(force=force, sample=sample, sleep=_sleep, max_minutes=max_minutes)
@@ -269,6 +270,7 @@ def run(
     wics_date: str | None = None,
     scoped: bool = False,
     top_n: int = 100,
+    backend: str = "pykrx",
 ) -> None:
     """
     Run the Phase 1 pipeline.
@@ -295,7 +297,7 @@ def run(
 
     if stage == "cb_bw":
         log.info("=== Stage: cb_bw ===")
-        run_stage_cb_bw(force=force, rebuild=rebuild, sample=sample, sleep=sleep, max_minutes=max_minutes, scoped=scoped, top_n=top_n)
+        run_stage_cb_bw(force=force, rebuild=rebuild, sample=sample, sleep=sleep, max_minutes=max_minutes, scoped=scoped, top_n=top_n, backend=backend)
         return
 
     # Full Phase 1 pipeline: dart → transform
