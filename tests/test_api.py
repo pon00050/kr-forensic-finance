@@ -92,3 +92,24 @@ def test_summary_valid_corp_code(monkeypatch):
     data = r.json()
     assert data["corp_code"] == "01051092"
     assert data["company_name"] == "Test Corp"
+
+
+# ─── Phase 3 stub endpoints ─────────────────────────────────────────────────
+
+
+def test_alerts_endpoint_empty():
+    """GET /api/alerts returns 200 with total == 0."""
+    r = client.get("/api/alerts")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 0
+    assert data["alerts"] == []
+
+
+def test_monitor_status_endpoint():
+    """GET /api/monitor/status returns 200 with running == false."""
+    r = client.get("/api/monitor/status")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["running"] is False
+    assert data["sources"] == []

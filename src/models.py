@@ -115,6 +115,32 @@ class DataQuality(BaseModel):
     summary: QualitySummary
 
 
+
+# ─── Phase 3 — Monitoring models ────────────────────────────────────────────
+
+class AlertEvent(BaseModel):
+    alert_id: str
+    created_at: str
+    source: str            # "dart_rss" | "krx_warning" | "fsc_enforcement"
+    corp_code: str
+    corp_name: str
+    event_type: str
+    event_date: str
+    severity: str          # "info" | "low" | "medium" | "high" | "critical"
+    action_taken: str
+    resolved: bool
+
+
+class MonitorStatus(BaseModel):
+    running: bool
+    sources: list[str]
+
+
+class AlertList(BaseModel):
+    alerts: list[AlertEvent]
+    total: int
+
+
 __all__ = [
     "BeneishYearScore",
     "CompanySummary",
@@ -127,4 +153,7 @@ __all__ = [
     "StatOutputStatus",
     "QualitySummary",
     "DataQuality",
+    "AlertEvent",
+    "MonitorStatus",
+    "AlertList",
 ]

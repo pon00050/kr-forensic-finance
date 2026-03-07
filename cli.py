@@ -265,6 +265,30 @@ def refresh(
 
 
 @app.command()
+def monitor(
+    source: Optional[str] = typer.Option(None, help="Data source to poll (e.g. dart_rss, krx_warning)"),
+    interval: int = typer.Option(300, help="Poll interval in seconds"),
+    once: bool = typer.Option(False, "--once", help="Poll once and exit"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Poll but do not trigger re-scoring"),
+) -> None:
+    """Poll external data sources for new events and trigger re-scoring."""
+    typer.echo("monitor command is a Phase 3 stub — not yet implemented")
+    raise typer.Exit(code=0)
+
+
+@app.command()
+def alerts(
+    limit: int = typer.Option(20, help="Maximum alerts to show"),
+    corp_code: Optional[str] = typer.Option(None, help="Filter by corp_code"),
+    severity: Optional[str] = typer.Option(None, help="Filter by severity (info/low/medium/high/critical)"),
+    unresolved: bool = typer.Option(False, "--unresolved", help="Show only unresolved alerts"),
+) -> None:
+    """Show recent alerts from the monitoring system."""
+    typer.echo("alerts command is a Phase 3 stub — not yet implemented")
+    raise typer.Exit(code=0)
+
+
+@app.command()
 def serve(
     host: str = typer.Option("127.0.0.1", help="Bind host"),
     port: int = typer.Option(8000, help="Bind port"),

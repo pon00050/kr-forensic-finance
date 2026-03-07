@@ -10,6 +10,8 @@ Endpoints:
     GET /api/quality                            → DataQuality
     GET /api/companies/{corp_code}/summary      → CompanySummary
     GET /api/companies/{corp_code}/report       → HTML
+    GET /api/alerts                             → AlertList
+    GET /api/monitor/status                     → MonitorStatus
     GET /docs                                   → Swagger UI (auto-generated)
 """
 
@@ -18,7 +20,7 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
-from src.models import CompanySummary, DataQuality, PipelineStatus
+from src.models import AlertList, CompanySummary, DataQuality, MonitorStatus, PipelineStatus
 from src.quality import get_quality
 from src.report import get_company_summary, get_report_html
 from src.status import get_status
@@ -61,3 +63,15 @@ def pipeline_status():
 def data_quality():
     """Return data quality metrics (null rates, coverage gaps, stat test outputs)."""
     return get_quality()
+
+
+@app.get("/api/alerts", response_model=AlertList)
+def list_alerts():
+    """Return recent alerts from the monitoring system (Phase 3 stub)."""
+    return {"alerts": [], "total": 0}
+
+
+@app.get("/api/monitor/status", response_model=MonitorStatus)
+def monitor_status():
+    """Return monitoring system status (Phase 3 stub)."""
+    return {"running": False, "sources": []}

@@ -130,26 +130,41 @@ Phase 3 extends the pipeline from periodic batch processing to continuous monito
 Detection runs incrementally as new data arrives rather than on a fixed schedule,
 reducing time-to-signal from weeks to hours. Full specification in internal documentation.
 
-Phase 3 engineering prerequisites (before Phase 4 website):
+### Phase 3 prerequisites
+
+| ID | Description | Status |
+|----|-------------|--------|
+| P1 | DuckDB analytics layer (`src/db.py`): connection factory over existing parquet files | Complete (Session 46) |
+| P2 | Pydantic models for alerts/monitoring (`AlertEvent`, `MonitorStatus`, `AlertList`) | Complete (Session 46) |
+| P3 | Monitor package skeleton (`02_Pipeline/monitor/`) | Complete (Session 46) |
+| P4 | CLI stubs (`krff monitor`, `krff alerts`) | Complete (Session 46) |
+| P5 | API stubs (`/api/alerts`, `/api/monitor/status`) | Complete (Session 46) |
+| P6 | Alert schema + SQLite operational state | Planned (deferred until M1 needs persistent state) |
+| P7 | Label candidates schema for automated staging | Planned |
+
+### Phase 3 engineering prerequisites (before Phase 4 website)
+
 - **FastAPI readiness refactoring — Complete (Session 43).** `src/data_access.py` (reusable loaders),
   `src/models.py` (Pydantic response shapes), env var config overrides, public API functions
   (`get_company_summary`, `get_report_html`). All scoring constants consolidated in `src/constants.py`.
   A developer can now write `from src.report import get_company_summary` in a FastAPI endpoint.
-- **FastAPI HTTP layer — Complete (Session 44).** `app.py` (4 endpoints: `/api/status`,
-  `/api/quality`, `/api/companies/{corp_code}/summary`, `/api/companies/{corp_code}/report`);
+- **FastAPI HTTP layer — Complete (Session 44).** `app.py` (6 endpoints: `/api/status`,
+  `/api/quality`, `/api/companies/{corp_code}/summary`, `/api/companies/{corp_code}/report`,
+  `/api/alerts`, `/api/monitor/status`);
   `krff serve` CLI command (`uvicorn`-backed); Typer input validation on all commands (`run`, `report`,
   `refresh`); try/except error wrapping on all commands; `fastapi>=0.115.0` + `uvicorn[standard]>=0.30.0`
-  added to deps. Start with `krff serve` → Swagger UI at `http://127.0.0.1:8000/docs`. 182 tests pass.
-- FastAPI backend serving JSON endpoints over PostgreSQL operational state
+  added to deps. Start with `krff serve` → Swagger UI at `http://127.0.0.1:8000/docs`.
+- **DuckDB integration — Complete (Session 46).** `src/db.py` (connection factory, parameterized queries
+  over parquet); `data_access.py` and `quality.py` migrated to DuckDB internals; no data migration needed.
 - Minimal orchestrator: Poll → Normalize → Dedup → Dispatch → Execute → Publish → Log
-- PostgreSQL for operational state (source_events, jobs, alerts, company_snapshots, artifacts)
-  Keep parquet for analytics — do not migrate analytical tables to SQL
+- SQLite operational state (deferred until M1 needs persistent job/alert state).
+  Analytics stays in parquet/DuckDB — operational state in SQLite when activated.
 
 ### Multi-user readiness gate (deliberately deferred until DB is integrated)
 
 The current `app.py` is correct and complete for single-analyst use. The following issues
 are **not bugs today** but must be resolved before the API serves multiple simultaneous users.
-They are structurally solved by the PostgreSQL integration above — listed here for reference.
+They are structurally solved by the DuckDB + SQLite integration above — listed here for reference.
 
 **Typer CLI — minimal changes needed:**
 - Concurrent `krff run` writes to shared `01_Data/processed/` will race. Each user must set
@@ -168,8 +183,9 @@ They are structurally solved by the PostgreSQL integration above — listed here
   `threadpool_size` in uvicorn config.
 - No authentication. Any host that can reach the port can call any endpoint.
   Fix: API key header middleware (simple), or OAuth (public-facing).
-- Once the DB is the operational layer, `get_status()` and `get_quality()` read from DB
-  instead of live parquet scans, eliminating both the latency and the caching problem.
+- Once SQLite is the operational layer, `get_status()` and `get_quality()` can read from
+  DuckDB views + SQLite state instead of live parquet scans, eliminating both the latency
+  and the caching problem.
 
 ## Phase 4 — Public Website (ultimate goal)
 

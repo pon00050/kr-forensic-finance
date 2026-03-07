@@ -14,10 +14,10 @@ PROCESSED = ROOT / "01_Data" / "processed"
 
 
 def test_cli_help():
-    """--help exits 0 and lists all 4 subcommands."""
+    """--help exits 0 and lists all subcommands."""
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    for cmd in ("run", "analyze", "charts", "status", "version"):
+    for cmd in ("run", "analyze", "charts", "status", "version", "monitor", "alerts"):
         assert cmd in result.output, f"Expected '{cmd}' in --help output"
 
 
@@ -219,3 +219,20 @@ def test_cli_report_smoke(tmp_path, monkeypatch):
     )
     assert result.exit_code == 0, f"Expected exit 0:\n{result.output}\n{result.exception}"
     assert "Wrote" in result.output
+
+
+# ─── Phase 3 stub tests ─────────────────────────────────────────────────────
+
+
+def test_monitor_stub_exits_zero():
+    """krff monitor --once exits 0 with stub message."""
+    result = runner.invoke(app, ["monitor", "--once"])
+    assert result.exit_code == 0, f"Expected exit 0:\n{result.output}"
+    assert "stub" in result.output.lower() or "not yet implemented" in result.output.lower()
+
+
+def test_alerts_stub_exits_zero():
+    """krff alerts exits 0 with stub message."""
+    result = runner.invoke(app, ["alerts"])
+    assert result.exit_code == 0, f"Expected exit 0:\n{result.output}"
+    assert "stub" in result.output.lower() or "not yet implemented" in result.output.lower()
