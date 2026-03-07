@@ -17,6 +17,7 @@ from pathlib import Path
 import pandas as pd
 
 from src._paths import PROJECT_ROOT, PROCESSED_DIR
+from src.db import read_table, query, parquet_path
 
 log = logging.getLogger(__name__)
 
@@ -34,25 +35,9 @@ def load_parquet(
     processed_dir: Path | None = None,
 ) -> pd.DataFrame:
     """Load a parquet table from processed dir, optionally filtered to one corp_code."""
-    proc = processed_dir or PROCESSED_DIR
-    p = proc / name
-    if not p.exists():
-        return pd.DataFrame()
-    try:
-        df = pd.read_parquet(p)
-        if corp_code is not None:
-            if "corp_code" not in df.columns:
-                return pd.DataFrame()
-            mask = df["corp_code"].astype(str).str.zfill(8) == corp_code
-            df = df[mask]
-        if sort_by and sort_by in df.columns:
-            df = df.sort_values(sort_by)
-        return df.reset_index(drop=True)
-    except FileNotFoundError:
-        return pd.DataFrame()
-    except Exception as exc:
-        log.warning("Error loading %s for %s: %s", name, corp_code, exc)
-        return pd.DataFrame()
+    return read_table(
+        name, corp_code=corp_code, sort_by=sort_by, processed_dir=processed_dir,
+    )
 
 
 def load_csv(path: Path, corp_code: str | None = None) -> pd.DataFrame:
@@ -85,22 +70,20 @@ def load_company_name(
         if pd.notna(val) and str(val).strip():
             return str(val).strip()
     proc = processed_dir or PROCESSED_DIR
-    p2 = proc / "corp_ticker_map.parquet"
-    if p2.exists():
-        try:
-            df2 = pd.read_parquet(p2)
-            mask2 = df2["corp_code"].astype(str).str.zfill(8) == corp_code
-            rows2 = df2[mask2]
-            if not rows2.empty:
-                for col in ("company_name", "corp_name", "name"):
-                    if col in rows2.columns:
-                        val = rows2[col].iloc[0]
-                        if pd.notna(val) and str(val).strip():
-                            return str(val).strip()
-        except FileNotFoundError:
-            pass
-        except Exception as exc:
-            log.warning("Error loading company name from corp_ticker_map for %s: %s", corp_code, exc)
+    path = parquet_path("corp_ticker_map", proc)
+    if path.exists():
+        path_str = str(path).replace("\\", "/")
+        for col in ("company_name", "corp_name", "name"):
+            sql = (
+                f"SELECT {col} FROM read_parquet(?) "
+                "WHERE LPAD(CAST(corp_code AS VARCHAR), 8, '0') = ? "
+                "LIMIT 1"
+            )
+            df2 = query(sql, [path_str, corp_code])
+            if not df2.empty:
+                val = df2.iloc[0, 0]
+                if pd.notna(val) and str(val).strip():
+                    return str(val).strip()
     return corp_code
 
 

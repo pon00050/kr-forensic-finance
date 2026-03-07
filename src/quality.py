@@ -8,8 +8,11 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 from src._paths import PROJECT_ROOT as _PROJECT_ROOT, PROCESSED_DIR as _PROCESSED
 
@@ -55,9 +58,6 @@ def get_quality(
     stat_outputs_dir: Path | None = None,
 ) -> dict:
     """Inspect all pipeline parquets and return structured quality dict."""
-    import numpy as np
-    import pandas as pd
-
     proc = processed_dir or _PROCESSED
     stat_out = stat_outputs_dir or _STAT_OUTPUTS
 
@@ -65,31 +65,66 @@ def get_quality(
     tables = []
     for path in sorted(proc.glob("*.parquet")):
         name = path.name
-        df = pd.read_parquet(path)
-        rows, cols_ = df.shape
-        null_count = int(df.isnull().sum().sum())
-        null_pct = null_count / max(rows * cols_, 1) * 100
-        # inf count (float columns only)
-        float_cols = df.select_dtypes(include="float")
-        inf_count = int(np.isinf(float_cols.values).sum()) if not float_cols.empty else 0
+        path_str = str(path).replace("\\", "/")
+
+        # Schema introspection via DuckDB
+        import duckdb
+        con = duckdb.connect()
+        try:
+            schema_df = con.execute(
+                "SELECT column_name, column_type FROM (DESCRIBE SELECT * FROM read_parquet(?))",
+                [path_str],
+            ).fetchdf()
+            all_cols = list(schema_df["column_name"])
+            col_types = dict(zip(schema_df["column_name"], schema_df["column_type"]))
+            cols_ = len(all_cols)
+
+            # Row count + null counts via aggregate query
+            null_exprs = ", ".join(
+                f"COUNT(*) - COUNT(\"{c}\") AS \"{c}_nulls\"" for c in all_cols
+            )
+            agg_sql = f"SELECT COUNT(*) AS total_rows, {null_exprs} FROM read_parquet(?)"
+            agg_row = con.execute(agg_sql, [path_str]).fetchdf().iloc[0]
+            rows = int(agg_row["total_rows"])
+
+            col_nulls = {}
+            null_count = 0
+            for c in all_cols:
+                n = int(agg_row[f"{c}_nulls"])
+                if n > 0:
+                    col_nulls[c] = (n, n / rows * 100)
+                null_count += n
+            null_pct = null_count / max(rows * cols_, 1) * 100
+
+            # Inf detection for float/double columns
+            float_cols = [
+                c for c, t in col_types.items()
+                if t.upper() in ("FLOAT", "DOUBLE", "REAL")
+            ]
+            inf_count = 0
+            if float_cols:
+                inf_exprs = " + ".join(
+                    f"COUNT(*) FILTER (WHERE isinf(\"{c}\"))" for c in float_cols
+                )
+                inf_sql = f"SELECT {inf_exprs} AS inf_total FROM read_parquet(?)"
+                inf_row = con.execute(inf_sql, [path_str]).fetchdf()
+                inf_count = int(inf_row.iloc[0, 0])
+        except Exception as exc:
+            log.warning("DuckDB quality scan failed for %s: %s", name, exc)
+            rows, cols_, null_count, null_pct, inf_count, col_nulls = 0, 0, 0, 0.0, 0, {}
+        finally:
+            con.close()
 
         # Build issues string from known patterns
         issues_parts: list[str] = []
         for col, label in _NULL_ISSUE_COLS.get(name, []):
-            if col in df.columns:
-                col_null_pct = df[col].isnull().mean() * 100
+            if col in col_nulls:
+                col_null_pct = col_nulls[col][1]
                 if col_null_pct > 5:
                     issues_parts.append(f"{label} ({col_null_pct:.0f}%)")
         if inf_count > 0:
             issues_parts.append(f"{inf_count} infs")
         issues = "; ".join(issues_parts)
-
-        # Per-column null breakdown (for verbose mode)
-        col_nulls = {}
-        for c in df.columns:
-            n = int(df[c].isnull().sum())
-            if n > 0:
-                col_nulls[c] = (n, n / rows * 100)
 
         tables.append({
             "name": name,
@@ -105,46 +140,66 @@ def get_quality(
             ).strftime("%Y-%m-%d"),
         })
 
-    # --- Coverage (reuse DFs from table scan where possible) ---
-    table_cache: dict[str, pd.DataFrame] = {}
-    for t in tables:
-        table_cache[t["name"]] = pd.read_parquet(proc / t["name"])
+    # --- Coverage (DuckDB aggregate queries — no full DataFrame loads) ---
+    from src.db import query as _db_query
 
     coverage: dict[str, str] = {}
     cbe_n: int | None = None
+
+    cbe_path = proc / "cb_bw_events.parquet"
+    bim_path = proc / "bond_isin_map.parquet"
     try:
-        bim = table_cache.get("bond_isin_map.parquet")
-        cbe = table_cache.get("cb_bw_events.parquet")
-        if bim is not None and cbe is not None:
-            bim_n = bim["corp_code"].nunique()
-            cbe_n = cbe["corp_code"].nunique()
+        if bim_path.exists() and cbe_path.exists():
+            bim_str = str(bim_path).replace("\\", "/")
+            cbe_str = str(cbe_path).replace("\\", "/")
+            bim_df = _db_query("SELECT COUNT(DISTINCT corp_code) AS n FROM read_parquet(?)", [bim_str])
+            cbe_df = _db_query("SELECT COUNT(DISTINCT corp_code) AS n FROM read_parquet(?)", [cbe_str])
+            bim_n = int(bim_df.iloc[0, 0])
+            cbe_n = int(cbe_df.iloc[0, 0])
             coverage["isin"] = f"{bim_n:,} / {cbe_n:,} CB/BW corps ({bim_n / max(cbe_n, 1) * 100:.1f}%)"
         else:
             coverage["isin"] = "unavailable"
     except Exception:
         coverage["isin"] = "unavailable"
 
+    disc_path = proc / "disclosures.parquet"
     try:
-        disc = table_cache.get("disclosures.parquet")
-        if disc is not None:
-            disc_n = disc["corp_code"].nunique()
-            if cbe_n is None:
-                cbe2 = table_cache.get("cb_bw_events.parquet")
-                cbe_n = cbe2["corp_code"].nunique() if cbe2 is not None else 0
+        if disc_path.exists():
+            disc_str = str(disc_path).replace("\\", "/")
+            disc_df = _db_query("SELECT COUNT(DISTINCT corp_code) AS n FROM read_parquet(?)", [disc_str])
+            disc_n = int(disc_df.iloc[0, 0])
+            if cbe_n is None and cbe_path.exists():
+                cbe_str = str(cbe_path).replace("\\", "/")
+                cbe_df = _db_query("SELECT COUNT(DISTINCT corp_code) AS n FROM read_parquet(?)", [cbe_str])
+                cbe_n = int(cbe_df.iloc[0, 0])
+            cbe_n = cbe_n or 0
             coverage["disclosures"] = f"{disc_n:,} / {cbe_n:,} CB/BW corps ({disc_n / max(cbe_n, 1) * 100:.1f}%)"
         else:
             coverage["disclosures"] = "unavailable"
     except Exception:
         coverage["disclosures"] = "unavailable"
 
+    pv_path = proc / "price_volume.parquet"
+    ctm_path = proc / "corp_ticker_map.parquet"
     try:
-        pv = table_cache.get("price_volume.parquet")
-        ctm = table_cache.get("corp_ticker_map.parquet")
-        if pv is not None and ctm is not None:
-            pv_tickers = set(pv["ticker"].astype(str).unique())
-            ctm_tickers = set(ctm["ticker"].dropna().astype(str).unique())
-            pv_n = len(pv_tickers & ctm_tickers)
-            ctm_n = len(ctm_tickers)
+        if pv_path.exists() and ctm_path.exists():
+            pv_str = str(pv_path).replace("\\", "/")
+            ctm_str = str(ctm_path).replace("\\", "/")
+            # Use DuckDB to compute ticker intersection count
+            intersect_sql = (
+                "SELECT COUNT(*) AS n FROM ("
+                "  SELECT DISTINCT CAST(ticker AS VARCHAR) AS t FROM read_parquet(?) "
+                "  INTERSECT "
+                "  SELECT DISTINCT CAST(ticker AS VARCHAR) AS t FROM read_parquet(?) WHERE ticker IS NOT NULL"
+                ")"
+            )
+            pv_n_df = _db_query(intersect_sql, [pv_str, ctm_str])
+            ctm_n_df = _db_query(
+                "SELECT COUNT(DISTINCT CAST(ticker AS VARCHAR)) AS n FROM read_parquet(?) WHERE ticker IS NOT NULL",
+                [ctm_str],
+            )
+            pv_n = int(pv_n_df.iloc[0, 0])
+            ctm_n = int(ctm_n_df.iloc[0, 0])
             coverage["price"] = f"{pv_n:,} / {ctm_n:,} mapped tickers ({pv_n / max(ctm_n, 1) * 100:.1f}%)"
         else:
             coverage["price"] = "unavailable"

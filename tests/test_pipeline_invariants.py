@@ -2380,3 +2380,92 @@ class TestPathsEnvOverride:
             # Restore original
             monkeypatch.delenv("KRFF_DATA_DIR", raising=False)
             importlib.reload(src._paths)
+
+
+# ─── Category 28: DuckDB query contracts ────────────────────────────────────────
+
+class TestDuckDBQueryContracts:
+    """Verify src.db module contracts: parameterized queries, filtering, error handling."""
+
+    def _write_test_parquet(self, tmp_path, name="test.parquet", data=None):
+        if data is None:
+            data = {
+                "corp_code": ["00111111", "00222222", "00111111"],
+                "year": [2021, 2022, 2023],
+                "m_score": [1.5, -2.1, 0.3],
+            }
+        df = pd.DataFrame(data)
+        path = tmp_path / name
+        df.to_parquet(path, index=False)
+        return path
+
+    def test_missing_parquet_returns_empty_df(self, tmp_path):
+        """read_table() on nonexistent file returns empty DataFrame, no crash."""
+        from src.db import read_table
+        result = read_table("nonexistent_table", processed_dir=tmp_path)
+        assert isinstance(result, pd.DataFrame)
+        assert result.empty
+
+    def test_query_result_schema_matches(self, tmp_path):
+        """Columns from DuckDB match parquet file columns."""
+        from src.db import read_table
+        path = self._write_test_parquet(tmp_path)
+        result = read_table(path.stem, processed_dir=tmp_path)
+        assert set(result.columns) == {"corp_code", "year", "m_score"}
+        assert len(result) == 3
+
+    def test_corp_code_filtering(self, tmp_path):
+        """WHERE corp_code works with zero-padding."""
+        from src.db import read_table
+        self._write_test_parquet(tmp_path)
+        result = read_table("test", corp_code="00111111", processed_dir=tmp_path)
+        assert len(result) == 2
+        assert all(result["corp_code"].astype(str).str.zfill(8) == "00111111")
+
+    def test_corp_code_filter_no_corp_code_column(self, tmp_path):
+        """Table without corp_code col + filter returns empty DataFrame."""
+        from src.db import read_table
+        self._write_test_parquet(tmp_path, data={"x": [1, 2], "y": [3, 4]})
+        result = read_table("test", corp_code="00111111", processed_dir=tmp_path)
+        assert result.empty
+
+    def test_parameterized_query_prevents_injection(self, tmp_path):
+        """Injection string in corp_code returns empty result, no error."""
+        from src.db import read_table
+        self._write_test_parquet(tmp_path)
+        result = read_table(
+            "test",
+            corp_code="'; DROP TABLE test; --",
+            processed_dir=tmp_path,
+        )
+        assert result.empty
+
+    def test_sort_by_column(self, tmp_path):
+        """ORDER BY year works correctly."""
+        from src.db import read_table
+        self._write_test_parquet(tmp_path)
+        result = read_table("test", sort_by="year", processed_dir=tmp_path)
+        assert len(result) == 3
+        assert list(result["year"]) == [2021, 2022, 2023]
+
+    def test_query_raw_sql(self, tmp_path):
+        """Low-level query() with params executes correctly."""
+        from src.db import query
+        path = self._write_test_parquet(tmp_path)
+        path_str = str(path).replace("\\", "/")
+        result = query(
+            "SELECT * FROM read_parquet(?) WHERE year >= ?",
+            [path_str, 2022],
+        )
+        assert len(result) == 2
+
+    def test_data_access_load_parquet_integration(self, tmp_path):
+        """load_parquet() still works after DuckDB migration (end-to-end)."""
+        from src.data_access import load_parquet
+        self._write_test_parquet(tmp_path, name="beneish_scores.parquet")
+        result = load_parquet(
+            "beneish_scores.parquet",
+            corp_code="00111111",
+            processed_dir=tmp_path,
+        )
+        assert len(result) == 2
