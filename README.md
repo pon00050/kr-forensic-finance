@@ -65,6 +65,7 @@ python 03_Analysis/beneish_screen.py   # compute M-scores → beneish_scores.par
 krff analyze                           # print score summary
 krff charts                            # write 03_Analysis/beneish_viz.html
 krff status                            # show artifact inventory (rows, sizes, dates)
+krff serve                             # start HTTP API on http://127.0.0.1:8000 (Swagger UI at /docs)
 krff --help                            # list all commands
 ```
 

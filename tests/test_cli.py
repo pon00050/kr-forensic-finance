@@ -131,6 +131,75 @@ def test_cli_status_verbose_no_run_summary(tmp_path, monkeypatch):
     assert result.exit_code == 0, f"Expected exit 0:\n{result.output}"
 
 
+# ─── Phase A3: Input validation tests ────────────────────────────────────────
+
+
+def test_run_invalid_market():
+    """krff run --market NASDAQ exits 2 with a message about valid values."""
+    result = runner.invoke(app, ["run", "--market", "NASDAQ"])
+    assert result.exit_code == 2, f"Expected exit 2:\n{result.output}"
+    assert "KOSDAQ or KOSPI" in result.output
+
+
+def test_run_start_after_end():
+    """krff run --start 2023 --end 2020 exits 2 (start >= end)."""
+    result = runner.invoke(app, ["run", "--start", "2023", "--end", "2020"])
+    assert result.exit_code == 2, f"Expected exit 2:\n{result.output}"
+
+
+def test_run_invalid_sample():
+    """krff run --sample 0 exits 2."""
+    result = runner.invoke(app, ["run", "--sample", "0"])
+    assert result.exit_code == 2, f"Expected exit 2:\n{result.output}"
+
+
+def test_report_invalid_corp_code():
+    """krff report with non-digit corp_code exits 2 mentioning 'digits'."""
+    result = runner.invoke(app, ["report", "abc!xyz"])
+    assert result.exit_code == 2, f"Expected exit 2:\n{result.output}"
+    assert "digits" in result.output
+
+
+def test_refresh_invalid_sample():
+    """krff refresh --sample -1 exits 2."""
+    result = runner.invoke(app, ["refresh", "--sample", "-1"])
+    assert result.exit_code == 2, f"Expected exit 2:\n{result.output}"
+
+
+def test_quality_runs(tmp_path, monkeypatch):
+    """krff quality exits 0 when processed dir is empty (no parquets)."""
+    import src.quality as sq
+
+    processed = tmp_path / "processed"
+    processed.mkdir()
+    monkeypatch.setattr(sq, "_PROCESSED", processed)
+    monkeypatch.setattr(sq, "_STAT_OUTPUTS", tmp_path / "stat_outputs")
+
+    result = runner.invoke(app, ["quality"])
+    assert result.exit_code == 0, f"Expected exit 0:\n{result.output}"
+    assert "Data Quality Report" in result.output
+
+
+def test_charts_missing_parquet(tmp_path):
+    """krff charts with a missing parquet path exits 1 with a 'not found' message."""
+    missing = tmp_path / "nonexistent.parquet"
+    result = runner.invoke(app, ["charts", "--parquet", str(missing)])
+    assert result.exit_code == 1, f"Expected exit 1:\n{result.output}"
+    assert "not found" in result.output
+
+
+def test_refresh_skips_beneish_when_sample_active(monkeypatch):
+    """KI-026: krff refresh --sample N must not invoke beneish_screen.py (Stage 3)."""
+    import src.pipeline as sp
+
+    monkeypatch.setattr(sp, "run_pipeline", lambda **kw: None)
+
+    result = runner.invoke(app, ["refresh", "--sample", "1", "--skip-analysis"])
+    assert result.exit_code == 0, f"Expected exit 0:\n{result.output}"
+    assert "skipped" in result.output.lower()
+    assert "beneish" in result.output.lower()
+
+
 def test_cli_report_smoke(tmp_path, monkeypatch):
     """With monkeypatched generate_report and --skip-claude, prints 'Wrote' and exits 0."""
     import src.report as rpt

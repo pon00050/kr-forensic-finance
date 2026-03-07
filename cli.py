@@ -36,6 +36,11 @@ _DEFAULT_PARQUET = Path(__file__).parent / "01_Data" / "processed" / "beneish_sc
 _ANALYSIS_DIR = Path(__file__).parent / "03_Analysis"
 
 
+def _require_positive_sample(sample: Optional[int]) -> None:
+    if sample is not None and sample < 1:
+        raise typer.BadParameter(f"sample must be >= 1, got {sample}", param_hint="'--sample'")
+
+
 @app.command()
 def run(
     market: str = typer.Option("KOSDAQ", help="Exchange market (KOSDAQ or KOSPI)"),
@@ -52,22 +57,44 @@ def run(
     top_n: int = typer.Option(100, help="Top-N for scoped cb_bw stage"),
 ) -> None:
     """Run the ETL pipeline (DART extraction + transform)."""
+    if market.upper() not in ("KOSDAQ", "KOSPI"):
+        raise typer.BadParameter(f"market must be KOSDAQ or KOSPI, got {market!r}", param_hint="'--market'")
+    if not (2010 <= start <= 2030):
+        raise typer.BadParameter(f"start must be between 2010 and 2030, got {start}", param_hint="'--start'")
+    if not (2010 <= end <= 2030):
+        raise typer.BadParameter(f"end must be between 2010 and 2030, got {end}", param_hint="'--end'")
+    if start >= end:
+        raise typer.BadParameter(f"start ({start}) must be less than end ({end})")
+    _require_positive_sample(sample)
+    if max_minutes is not None and max_minutes <= 0:
+        raise typer.BadParameter(f"max_minutes must be > 0, got {max_minutes}", param_hint="'--max-minutes'")
+    if sleep is not None and sleep < 0:
+        raise typer.BadParameter(f"sleep must be >= 0, got {sleep}", param_hint="'--sleep'")
+    if top_n < 1:
+        raise typer.BadParameter(f"top_n must be >= 1, got {top_n}", param_hint="'--top-n'")
+    if wics_date is not None and (len(wics_date) != 8 or not wics_date.isdigit()):
+        raise typer.BadParameter(f"wics_date must be 8 digits (YYYYMMDD), got {wics_date!r}", param_hint="'--wics-date'")
+
     from src.pipeline import run_pipeline
 
-    run_pipeline(
-        market=market,
-        start=start,
-        end=end,
-        stage=stage,
-        corp_code=corp_code,
-        force=force,
-        sample=sample,
-        max_minutes=max_minutes,
-        sleep=sleep,
-        wics_date=wics_date,
-        scoped=scoped,
-        top_n=top_n,
-    )
+    try:
+        run_pipeline(
+            market=market,
+            start=start,
+            end=end,
+            stage=stage,
+            corp_code=corp_code,
+            force=force,
+            sample=sample,
+            max_minutes=max_minutes,
+            sleep=sleep,
+            wics_date=wics_date,
+            scoped=scoped,
+            top_n=top_n,
+        )
+    except Exception as exc:
+        typer.echo(f"Pipeline failed: {exc}", err=True)
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -82,9 +109,13 @@ def analyze(
         typer.echo(f"Error: {path} not found. Run 'krff run' then 'python 03_Analysis/beneish_screen.py' first.", err=True)
         raise typer.Exit(code=1)
 
-    df = run_beneish_screen(path)
-    typer.echo(df.to_string())
-    typer.echo(f"\n{len(df):,} rows · {df['corp_code'].nunique():,} companies · {int(df['flag'].sum()):,} flagged")
+    try:
+        df = run_beneish_screen(path)
+        typer.echo(df.to_string())
+        typer.echo(f"\n{len(df):,} rows · {df['corp_code'].nunique():,} companies · {int(df['flag'].sum()):,} flagged")
+    except Exception as exc:
+        typer.echo(f"Analyze failed: {exc}", err=True)
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -101,10 +132,14 @@ def charts(
         typer.echo(f"Error: {path} not found. Run 'krff run' then 'krff analyze' first.", err=True)
         raise typer.Exit(code=1)
 
-    df = run_beneish_screen(path)
-    out_dir = output_dir or _ANALYSIS_DIR
-    out_path = generate_charts(df, out_dir)
-    typer.echo(f"Wrote {out_path} ({out_path.stat().st_size / 1024:.0f} KB)")
+    try:
+        df = run_beneish_screen(path)
+        out_dir = output_dir or _ANALYSIS_DIR
+        out_path = generate_charts(df, out_dir)
+        typer.echo(f"Wrote {out_path} ({out_path.stat().st_size / 1024:.0f} KB)")
+    except Exception as exc:
+        typer.echo(f"Charts failed: {exc}", err=True)
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -114,12 +149,21 @@ def report(
     skip_claude: bool = typer.Option(False, "--skip-claude", help="Skip Claude API synthesis"),
 ) -> None:
     """Generate a self-contained HTML forensic report for one company."""
+    corp_code = corp_code.strip()
+    if not corp_code.isdigit() or not (1 <= len(corp_code) <= 8):
+        raise typer.BadParameter(f"corp_code must be 1–8 digits, got {corp_code!r}")
+    corp_code = corp_code.zfill(8)
+
     from src.report import generate_report
 
-    out_path = (output_dir or (_ANALYSIS_DIR / "reports")) / f"{corp_code.zfill(8)}_report.html"
-    typer.echo(f"Generating report for corp_code={corp_code}...")
-    result = generate_report(corp_code=corp_code, output_path=out_path, skip_claude=skip_claude)
-    typer.echo(f"Wrote {result} ({result.stat().st_size / 1024:.0f} KB)")
+    try:
+        out_path = (output_dir or (_ANALYSIS_DIR / "reports")) / f"{corp_code}_report.html"
+        typer.echo(f"Generating report for corp_code={corp_code}...")
+        result = generate_report(corp_code=corp_code, output_path=out_path, skip_claude=skip_claude)
+        typer.echo(f"Wrote {result} ({result.stat().st_size / 1024:.0f} KB)")
+    except Exception as exc:
+        typer.echo(f"Report generation failed: {exc}", err=True)
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -139,7 +183,11 @@ def quality(
     """Show data quality metrics: null rates, coverage gaps, and stat test output status."""
     from src.quality import get_quality, format_quality
 
-    typer.echo(format_quality(get_quality(), verbose=verbose))
+    try:
+        typer.echo(format_quality(get_quality(), verbose=verbose))
+    except Exception as exc:
+        typer.echo(f"Quality check failed: {exc}", err=True)
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -162,6 +210,8 @@ def refresh(
     Note: beneish_screen.py and Phase 2 runners are both skipped when --sample is active.
     --sample is for API quota smoke-testing only; production scoring requires full output.
     """
+    _require_positive_sample(sample)
+
     import subprocess
 
     root = Path(__file__).parent
@@ -178,11 +228,19 @@ def refresh(
 
     # Stage 1 — DART extraction
     typer.echo("\n--- Stage 1: DART extraction ---")
-    run_pipeline(stage="dart", sample=sample)
+    try:
+        run_pipeline(stage="dart", sample=sample)
+    except Exception as exc:
+        typer.echo(f"Stage 1 (DART extraction) failed: {exc}", err=True)
+        raise typer.Exit(code=1)
 
     # Stage 2 — Transform
     typer.echo("\n--- Stage 2: Transform ---")
-    run_pipeline(stage="transform", sample=sample)
+    try:
+        run_pipeline(stage="transform", sample=sample)
+    except Exception as exc:
+        typer.echo(f"Stage 2 (Transform) failed: {exc}", err=True)
+        raise typer.Exit(code=1)
 
     # Stage 3 — Beneish screen (skipped when --sample active: sample runs test API quota only)
     if sample is not None:
@@ -204,6 +262,21 @@ def refresh(
         _run_script("Stage 6: run_officer_network.py", analysis / "run_officer_network.py")
 
     typer.echo("\nRefresh complete.")
+
+
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", help="Bind host"),
+    port: int = typer.Option(8000, help="Bind port"),
+    reload: bool = typer.Option(False, "--reload", help="Auto-reload on code changes (dev mode)"),
+) -> None:
+    """Start the FastAPI HTTP server (uvicorn)."""
+    try:
+        import uvicorn
+    except ImportError:
+        typer.echo("uvicorn not installed. Run: uv sync", err=True)
+        raise typer.Exit(code=1)
+    uvicorn.run("app:app", host=host, port=port, reload=reload)
 
 
 @app.command()

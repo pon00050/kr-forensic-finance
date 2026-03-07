@@ -130,6 +130,72 @@ Phase 3 extends the pipeline from periodic batch processing to continuous monito
 Detection runs incrementally as new data arrives rather than on a fixed schedule,
 reducing time-to-signal from weeks to hours. Full specification in internal documentation.
 
+Phase 3 engineering prerequisites (before Phase 4 website):
+- **FastAPI readiness refactoring — Complete (Session 43).** `src/data_access.py` (reusable loaders),
+  `src/models.py` (Pydantic response shapes), env var config overrides, public API functions
+  (`get_company_summary`, `get_report_html`). All scoring constants consolidated in `src/constants.py`.
+  A developer can now write `from src.report import get_company_summary` in a FastAPI endpoint.
+- **FastAPI HTTP layer — Complete (Session 44).** `app.py` (4 endpoints: `/api/status`,
+  `/api/quality`, `/api/companies/{corp_code}/summary`, `/api/companies/{corp_code}/report`);
+  `krff serve` CLI command (`uvicorn`-backed); Typer input validation on all commands (`run`, `report`,
+  `refresh`); try/except error wrapping on all commands; `fastapi>=0.115.0` + `uvicorn[standard]>=0.30.0`
+  added to deps. Start with `krff serve` → Swagger UI at `http://127.0.0.1:8000/docs`. 182 tests pass.
+- FastAPI backend serving JSON endpoints over PostgreSQL operational state
+- Minimal orchestrator: Poll → Normalize → Dedup → Dispatch → Execute → Publish → Log
+- PostgreSQL for operational state (source_events, jobs, alerts, company_snapshots, artifacts)
+  Keep parquet for analytics — do not migrate analytical tables to SQL
+
+### Multi-user readiness gate (deliberately deferred until DB is integrated)
+
+The current `app.py` is correct and complete for single-analyst use. The following issues
+are **not bugs today** but must be resolved before the API serves multiple simultaneous users.
+They are structurally solved by the PostgreSQL integration above — listed here for reference.
+
+**Typer CLI — minimal changes needed:**
+- Concurrent `krff run` writes to shared `01_Data/processed/` will race. Each user must set
+  their own `KRFF_DATA_DIR` env var (already supported via `src/_paths.py`).
+- DART API key exhaustion (20K req/day) is per key. Multiple users on one key will collide.
+  Fix: separate keys per user, or a shared rate-limiting wrapper.
+
+**FastAPI — resolved by DB integration:**
+- `get_quality()` loads every parquet in full on every `/api/quality` request. Acceptable for
+  one analyst; under concurrent load, multiple full-DataFrame reads spike memory and latency.
+  Fix: cache with TTL, or restructure to read only PyArrow parquet footer statistics (no full
+  DataFrame load needed for null counts).
+- All routes are sync `def`, run in FastAPI's default thread pool
+  (`min(32, cpu_count + 4)` threads). Under concurrent disk-heavy requests, threads queue.
+  Fix: switch to `async def` + `asyncio.to_thread()` for disk reads, or set explicit
+  `threadpool_size` in uvicorn config.
+- No authentication. Any host that can reach the port can call any endpoint.
+  Fix: API key header middleware (simple), or OAuth (public-facing).
+- Once the DB is the operational layer, `get_status()` and `get_quality()` read from DB
+  instead of live parquet scans, eliminating both the latency and the caching problem.
+
+## Phase 4 — Public Website (ultimate goal)
+
+Institutions consume signals and reports in a familiar web interface.
+No code execution required from end users — they read, not operate.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| W1 | FastAPI backend + company/alert endpoints | Planned |
+| W2 | Static or server-rendered public website | Planned |
+| W3 | Company pages with signal history and report links | Planned |
+| W4 | Alert feed with severity levels and source links | Planned |
+| W5 | Admin review layer (false-positive flagging, label staging) | Planned |
+
+Design principles:
+- Frontend reads only published state from operational DB (atomic publish pattern)
+- Public language: "signal", "anomaly", "pattern" — never "fraud confirmed" or "criminal"
+- Infrastructure works without AI; AI enhances triage and summarization but does not gate the pipeline
+
+Multi-agent design (Phase 4 target):
+- Ingestion/triage agent — classify relevance, identify corp_code
+- Analysis operator agent — call existing scripts via fixed action menu
+- QA/validation agent — check output completeness and publish-safety
+- Publisher agent — generate website-ready summaries (signal language only)
+- Adversary/refutation agent — actively find benign explanations; challenge severity before publication
+
 ## Open Backlog
 
 | ID | Description | Phase | Effort |
