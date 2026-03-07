@@ -241,11 +241,16 @@ def test_alerts_stub_exits_zero():
 # ─── I1: --backend option tests ──────────────────────────────────────────────
 
 
+def _strip_ansi(text: str) -> str:
+    import re
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
 def test_run_backend_help():
     """krff run --help shows --backend option."""
     result = runner.invoke(app, ["run", "--help"])
     assert result.exit_code == 0
-    assert "--backend" in result.output
+    assert "--backend" in _strip_ansi(result.output)
 
 
 def test_run_invalid_backend():
@@ -268,7 +273,7 @@ def test_refresh_backend_help():
     """krff refresh --help shows --backend option."""
     result = runner.invoke(app, ["refresh", "--help"])
     assert result.exit_code == 0
-    assert "--backend" in result.output
+    assert "--backend" in _strip_ansi(result.output)
 
 
 def test_refresh_invalid_backend():
