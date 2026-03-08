@@ -20,7 +20,7 @@ Endpoints used (both from dataset 15001145 — StockSvc):
   - getXrcStkStatInfoN1:      CB/BW bond details (exercise price, terms) per bond ISIN
 
 Note: BondSvc/getRgtXrcInfo and SecDepoStat/getCvreqStat are aggregate-only (market-wide)
-and cannot be used for per-company analysis. See 00_Reference/38_SEIBRO_API_Credentials.md.
+and cannot be used for per-company analysis. See 00_Reference/2_Data/38_SEIBRO_API_Credentials.md.
 
 Outputs:
   01_Data/processed/cb_bw_events.parquet        (updated in-place with repricing data)

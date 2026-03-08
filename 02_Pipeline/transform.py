@@ -14,7 +14,7 @@ Input:
 Output:
   01_Data/processed/company_financials.parquet
 
-Schema: see 00_Reference/17_MVP_Requirements.md §4.5
+Schema: see 00_Reference/7_Projects/17_MVP_Requirements.md §4.5
 
 Usage:
     python 02_Pipeline/transform.py

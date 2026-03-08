@@ -2,7 +2,7 @@
 phase1_research_questions.py — Phase 1 analytical deep-dive.
 
 Answers the four open research questions from:
-  00_Reference/27_Phase1_Analytical_Research_Questions.md
+  00_Reference/7_Projects/27_Phase1_Analytical_Research_Questions.md
 
 Input:
   01_Data/processed/beneish_scores.parquet

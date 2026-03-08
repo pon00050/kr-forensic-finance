@@ -244,7 +244,7 @@ Test documentation is maintained locally in `00_Reference/`.
 | `dart_link` | Direct URL to company's annual report on DART |
 | `extraction_date` | Date this row's data was extracted from DART |
 
-Full schema spec is maintained locally in `00_Reference/17_MVP_Requirements.md`.
+Full schema spec is maintained locally in `00_Reference/7_Projects/17_MVP_Requirements.md`.
 
 **`top50_spot_check.csv`** (`tests/`) — Top 50 companies by M-Score with `corp_code`, `ticker`, `company_name`, `year`, `m_score`, `flag`.
 

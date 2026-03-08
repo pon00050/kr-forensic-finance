@@ -2,7 +2,7 @@
 test_acceptance_criteria.py — Phase 1 acceptance criteria (AC1–AC7).
 
 Checks pipeline outputs against the acceptance thresholds defined in
-00_Reference/17_MVP_Requirements.md. Each AC maps to one pytest test
+00_Reference/7_Projects/17_MVP_Requirements.md. Each AC maps to one pytest test
 function so failures are reported individually.
 
 Also writes tests/top50_spot_check.csv for manual spot-checking.
