@@ -196,6 +196,19 @@ def quality(
 
 
 @app.command()
+def audit(
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show all input file mtimes"),
+) -> None:
+    """Check pipeline data freshness. Flags stale outputs and recommends reruns."""
+    from src.audit import get_audit, format_audit
+
+    result = get_audit()
+    typer.echo(format_audit(result, verbose=verbose))
+    if result["any_stale"]:
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def refresh(
     sample: Optional[int] = typer.Option(None, help="Limit to N companies for each stage (smoke test: --sample 1)"),
     skip_analysis: bool = typer.Option(False, "--skip-analysis", help="Skip Phase 2 runner scripts (cb_bw, timing, network)"),

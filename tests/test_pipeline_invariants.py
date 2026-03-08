@@ -2718,3 +2718,215 @@ class TestBeneishComponentWinsorization:
                 f"{comp} max absolute value is {max_val:.1f} — "
                 f"expected bounded by winsorization"
             )
+
+
+# ─── Category N: Audit freshness logic ───────────────────────────────────────
+
+class TestAudit:
+    """
+    Unit tests for src/audit.py — DAG staleness logic.
+
+    All tests use tmp_path and synthetic files; no real pipeline data required.
+    """
+
+    def _write(self, path: pathlib.Path, content: str = "x") -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+
+    def test_ok_when_output_newer_than_input(self, tmp_path):
+        """If output mtime > all input mtimes, stage reports 'ok'."""
+        from src.audit import get_audit, DAG, StageNode
+
+        # Build a minimal single-stage DAG in tmp_path
+        inp = tmp_path / "input.json"
+        out = tmp_path / "output.parquet"
+        self._write(inp)
+        import time; time.sleep(0.05)
+        self._write(out)
+
+        single_dag = [
+            StageNode(
+                stage="test_stage",
+                output="output.parquet",
+                inputs=["input.json"],
+                rerun_cmd="echo rerun",
+            )
+        ]
+
+        import unittest.mock as mock
+        with mock.patch("src.audit.DAG", single_dag):
+            result = get_audit(project_root=tmp_path)
+
+        assert len(result["stages"]) == 1
+        assert result["stages"][0]["status"] == "ok"
+        assert result["any_stale"] is False
+        assert result["rerun_order"] == []
+
+    def test_stale_when_output_older_than_input(self, tmp_path):
+        """If a newer input exists after output was written, stage reports 'stale'."""
+        from src.audit import get_audit, StageNode
+
+        out = tmp_path / "output.parquet"
+        inp = tmp_path / "input.json"
+        self._write(out)
+        import time; time.sleep(0.05)
+        self._write(inp)  # input is newer than output
+
+        single_dag = [
+            StageNode(
+                stage="test_stage",
+                output="output.parquet",
+                inputs=["input.json"],
+                rerun_cmd="echo rerun",
+            )
+        ]
+
+        import unittest.mock as mock
+        with mock.patch("src.audit.DAG", single_dag):
+            result = get_audit(project_root=tmp_path)
+
+        assert result["stages"][0]["status"] == "stale"
+        assert result["any_stale"] is True
+        assert "echo rerun" in result["rerun_order"]
+
+    def test_missing_when_output_absent(self, tmp_path):
+        """If output file does not exist, stage reports 'missing'."""
+        from src.audit import get_audit, StageNode
+
+        inp = tmp_path / "input.json"
+        self._write(inp)
+        # no output file written
+
+        single_dag = [
+            StageNode(
+                stage="test_stage",
+                output="output.parquet",
+                inputs=["input.json"],
+                rerun_cmd="echo rerun",
+            )
+        ]
+
+        import unittest.mock as mock
+        with mock.patch("src.audit.DAG", single_dag):
+            result = get_audit(project_root=tmp_path)
+
+        assert result["stages"][0]["status"] == "missing"
+        assert result["any_stale"] is True
+
+    def test_propagated_staleness(self, tmp_path):
+        """If an upstream stage is stale, downstream stage reports 'propagated_stale'."""
+        from src.audit import get_audit, StageNode
+        import time
+
+        # Stage A: raw → intermediate (intermediate is OLDER than raw → stale)
+        raw = tmp_path / "raw.json"
+        intermediate = tmp_path / "intermediate.parquet"
+        final = tmp_path / "final.csv"
+
+        self._write(intermediate)
+        time.sleep(0.05)
+        self._write(raw)          # raw is newer → stage A is stale
+        time.sleep(0.05)
+        self._write(final)        # final is newer than intermediate, but A is stale
+
+        two_stage_dag = [
+            StageNode(
+                stage="stage_a",
+                output="intermediate.parquet",
+                inputs=["raw.json"],
+                rerun_cmd="echo rerun_a",
+            ),
+            StageNode(
+                stage="stage_b",
+                output="final.csv",
+                inputs=["intermediate.parquet"],
+                rerun_cmd="echo rerun_b",
+            ),
+        ]
+
+        import unittest.mock as mock
+        with mock.patch("src.audit.DAG", two_stage_dag):
+            result = get_audit(project_root=tmp_path)
+
+        stage_a = result["stages"][0]
+        stage_b = result["stages"][1]
+        assert stage_a["status"] == "stale"
+        assert stage_b["status"] == "propagated_stale"
+        assert result["any_stale"] is True
+        # Both commands appear in rerun_order, A before B
+        assert result["rerun_order"] == ["echo rerun_a", "echo rerun_b"]
+
+    def test_rerun_order_deduplicates_same_command(self, tmp_path):
+        """Two stages sharing the same rerun_cmd appear only once in rerun_order."""
+        from src.audit import get_audit, StageNode
+        import time
+
+        raw = tmp_path / "raw.json"
+        out1 = tmp_path / "out1.parquet"
+        out2 = tmp_path / "out2.csv"
+
+        self._write(out1)
+        self._write(out2)
+        time.sleep(0.05)
+        self._write(raw)  # both outputs are stale
+
+        shared_cmd = "python shared_script.py"
+        two_stage_dag = [
+            StageNode(stage="s1", output="out1.parquet", inputs=["raw.json"], rerun_cmd=shared_cmd),
+            StageNode(stage="s2", output="out2.csv", inputs=["raw.json"], rerun_cmd=shared_cmd),
+        ]
+
+        import unittest.mock as mock
+        with mock.patch("src.audit.DAG", two_stage_dag):
+            result = get_audit(project_root=tmp_path)
+
+        assert result["rerun_order"].count(shared_cmd) == 1
+
+    def test_format_audit_contains_key_labels(self, tmp_path):
+        """format_audit output includes status labels for stale and ok stages."""
+        from src.audit import get_audit, format_audit, StageNode
+        import time
+
+        inp = tmp_path / "inp.json"
+        out_ok = tmp_path / "ok.parquet"
+        out_stale = tmp_path / "stale.csv"
+
+        self._write(out_stale)
+        time.sleep(0.05)
+        self._write(inp)
+        time.sleep(0.05)
+        self._write(out_ok)
+
+        dag = [
+            StageNode(stage="ok_stage", output="ok.parquet", inputs=["inp.json"], rerun_cmd="echo ok"),
+            StageNode(stage="stale_stage", output="stale.csv", inputs=["inp.json"], rerun_cmd="echo stale"),
+        ]
+
+        import unittest.mock as mock
+        with mock.patch("src.audit.DAG", dag):
+            result = get_audit(project_root=tmp_path)
+        text = format_audit(result)
+
+        assert "✓ OK" in text
+        assert "⚠ STALE" in text
+        assert "echo stale" in text  # rerun command printed
+
+    def test_format_audit_verbose_shows_inputs(self, tmp_path):
+        """With verbose=True, all input paths and their mtimes appear in output."""
+        from src.audit import get_audit, format_audit, StageNode
+        import time
+
+        inp = tmp_path / "inp.json"
+        out = tmp_path / "out.parquet"
+        self._write(inp)
+        time.sleep(0.05)
+        self._write(out)
+
+        dag = [StageNode(stage="s", output="out.parquet", inputs=["inp.json"], rerun_cmd="echo x")]
+
+        import unittest.mock as mock
+        with mock.patch("src.audit.DAG", dag):
+            result = get_audit(project_root=tmp_path)
+        text = format_audit(result, verbose=True)
+
+        assert "inp.json" in text

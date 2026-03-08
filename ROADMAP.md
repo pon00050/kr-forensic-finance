@@ -80,6 +80,7 @@
 | — | Label coverage analysis | `label_coverage_analysis.py` written; 13/14 Beneish (93%); 10/14 CB/BW (71%); 6/14 dual (43%); 에코앤드림 Beneish blind spot; §10 in FINDINGS.md |
 | — | Label expansion — 알티캐스트 | Web search confirmed CEO 서정규 배임 기소 2023-12-19 (특경법); added as fraud=1; labels 27→28 (15 fraud=1); bootstrap −1.75 stable; RF AUC 0.740; TATA −0.101 |
 | A1 | Automate recurring data refresh | `krff refresh` command added to `cli.py`; 6-stage wrapper; `--sample` + `--skip-analysis` flags; 168 tests pass |
+| A2 | Pipeline freshness checker | `krff audit` command added; DAG encodes 6 stages; detects stale outputs via mtime comparison; propagates staleness downstream; 7 new tests; 230 total pass |
 
 ### Completed (Session 36)
 
