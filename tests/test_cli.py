@@ -17,7 +17,7 @@ def test_cli_help():
     """--help exits 0 and lists all subcommands."""
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    for cmd in ("run", "analyze", "charts", "status", "version", "monitor", "alerts"):
+    for cmd in ("run", "analyze", "charts", "status", "version", "monitor", "alerts", "audit"):
         assert cmd in result.output, f"Expected '{cmd}' in --help output"
 
 
@@ -280,3 +280,19 @@ def test_refresh_invalid_backend():
     """krff refresh --backend bogus exits 2."""
     result = runner.invoke(app, ["refresh", "--backend", "bogus"])
     assert result.exit_code == 2, f"Expected exit 2:\n{result.output}"
+
+
+def test_audit_help():
+    """krff audit --help exits 0 and mentions freshness."""
+    result = runner.invoke(app, ["audit", "--help"])
+    assert result.exit_code == 0
+    assert "freshness" in result.output.lower(), (
+        f"Expected 'freshness' in audit --help output:\n{result.output}"
+    )
+
+
+def test_audit_verbose_flag_exists():
+    """krff audit --help shows --verbose flag."""
+    result = runner.invoke(app, ["audit", "--help"])
+    assert result.exit_code == 0
+    assert "--verbose" in _strip_ansi(result.output)
