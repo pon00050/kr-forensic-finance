@@ -579,6 +579,20 @@ def build_company_financials(
     df["year"] = df["year"].astype(int)
     df = df.reset_index(drop=True)
 
+    # When --sample is active, merge new rows into existing output to prevent
+    # data loss (KI-026). New rows take precedence on (corp_code, year) conflicts.
+    # Full runs (sample=None) always rebuild from scratch — correct by design.
+    if sample is not None:
+        existing_path = PROCESSED / "company_financials.parquet"
+        if existing_path.exists():
+            existing = pd.read_parquet(existing_path)
+            df = (
+                pd.concat([existing, df], ignore_index=True)
+                .drop_duplicates(subset=["corp_code", "year"], keep="last")
+                .reset_index(drop=True)
+            )
+            log.info("--sample merge: preserved %d existing rows", len(df))
+
     out = _write_parquet(df, "company_financials")
     _upload_to_r2(out, "processed/company_financials.parquet")
     return df

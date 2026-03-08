@@ -105,6 +105,164 @@ class TestKsicSamplePreservation:
         assert len(result) == 5
 
 
+class TestTransformSamplePreservation:
+    """
+    A --sample N run of build_company_financials() must merge new rows into
+    existing company_financials.parquet rather than overwriting it.
+
+    Regression guard for KI-026 (transform variant): sample run previously
+    overwrote the full dataset with only N companies' data.
+    """
+
+    @staticmethod
+    def _mock_raw_findata(corp_code, year, revenue=1e9, total_assets=5e9):
+        """Create a minimal raw financial parquet that _extract_company_year can read."""
+        return pd.DataFrame({
+            "account_id": [
+                "ifrs-full_Revenue",
+                "ifrs-full_Assets",
+                "ifrs-full_CostOfSales",
+            ],
+            "account_nm": ["매출액", "자산총계", "매출원가"],
+            "sj_div": ["IS", "BS", "IS"],
+            "thstrm_amount": [str(int(revenue)), str(int(total_assets)), str(int(revenue * 0.7))],
+            "_corp_code": [corp_code] * 3,
+            "_year": [year] * 3,
+            "_fs_type": ["CFS"] * 3,
+        })
+
+    def test_sample_run_preserves_existing(self, tmp_path, monkeypatch):
+        """
+        Given: company_financials.parquet already has 10 rows.
+        When:  build_company_financials runs with sample=2.
+        Then:  output has >= 10 rows (existing rows preserved).
+        """
+        import transform
+
+        # Set up directory structure
+        raw = tmp_path / "raw"
+        raw.mkdir()
+        (raw / "financials").mkdir()
+        (raw / "sector").mkdir()
+        processed = tmp_path / "processed"
+        processed.mkdir()
+
+        # Create company_list with 12 companies (10 existing + 2 new)
+        all_codes = [f"{i:08d}" for i in range(12)]
+        company_list = pd.DataFrame({
+            "corp_code": all_codes,
+            "stock_code": [f"T{i:05d}" for i in range(12)],
+            "corp_name": [f"Company{i}" for i in range(12)],
+            "market": ["KOSDAQ"] * 12,
+        })
+        company_list.to_parquet(raw / "company_list.parquet", index=False)
+
+        # Create raw financial data for all 12 companies (year 2021)
+        for code in all_codes:
+            df = self._mock_raw_findata(code, 2021)
+            df.to_parquet(raw / "financials" / f"{code}_2021.parquet", index=False)
+
+        # Create existing company_financials.parquet with 10 rows (companies 0-9)
+        existing_rows = []
+        for i in range(10):
+            existing_rows.append({
+                "corp_code": f"{i:08d}",
+                "ticker": f"T{i:05d}",
+                "company_name": f"Company{i}",
+                "market": "KOSDAQ",
+                "year": 2021,
+                "extraction_date": "2026-01-01",
+                "fs_type": "CFS",
+                "fs_type_shift": False,
+                "dart_api_source": "finstate_all_CFS",
+                "expense_method": "function",
+                "receivables": None,
+                "revenue": 1e9,
+                "cogs": 7e8,
+                "sga": None,
+                "ppe": None,
+                "depreciation": None,
+                "total_assets": 5e9,
+                "lt_debt": None,
+                "net_income": None,
+                "cfo": None,
+                "wics_sector_code": None,
+                "wics_sector": None,
+                "ksic_code": None,
+                "krx_sector": None,
+            })
+        existing_df = pd.DataFrame(existing_rows)
+        for col in ["receivables", "revenue", "cogs", "sga", "ppe",
+                     "depreciation", "total_assets", "lt_debt", "net_income", "cfo"]:
+            existing_df[col] = existing_df[col].astype("float64")
+        existing_df.to_parquet(processed / "company_financials.parquet", index=False)
+
+        # Patch paths
+        monkeypatch.setattr(transform, "RAW", raw)
+        monkeypatch.setattr(transform, "RAW_FINANCIALS", raw / "financials")
+        monkeypatch.setattr(transform, "RAW_SECTOR", raw / "sector")
+        monkeypatch.setattr(transform, "PROCESSED", processed)
+
+        # Run with sample=2 (only companies 0, 1)
+        result = transform.build_company_financials(
+            start_year=2021, end_year=2021, sample=2,
+        )
+
+        # Must preserve all 10 existing rows
+        output = pd.read_parquet(processed / "company_financials.parquet")
+        assert len(output) >= 10, (
+            f"sample=2 run wrote {len(output)} rows; expected >= 10 "
+            f"(existing rows must be preserved)"
+        )
+
+    def test_full_run_overwrites(self, tmp_path, monkeypatch):
+        """A full run (sample=None) rebuilds from scratch — no merge."""
+        import transform
+
+        raw = tmp_path / "raw"
+        raw.mkdir()
+        (raw / "financials").mkdir()
+        (raw / "sector").mkdir()
+        processed = tmp_path / "processed"
+        processed.mkdir()
+
+        # 3 companies in list
+        codes = [f"{i:08d}" for i in range(3)]
+        company_list = pd.DataFrame({
+            "corp_code": codes,
+            "stock_code": [f"T{i:05d}" for i in range(3)],
+            "corp_name": [f"Co{i}" for i in range(3)],
+            "market": ["KOSDAQ"] * 3,
+        })
+        company_list.to_parquet(raw / "company_list.parquet", index=False)
+
+        for code in codes:
+            df = self._mock_raw_findata(code, 2021)
+            df.to_parquet(raw / "financials" / f"{code}_2021.parquet", index=False)
+
+        # Pre-existing parquet with 20 rows (should be overwritten)
+        existing = pd.DataFrame({
+            "corp_code": [f"OLD{i:05d}" for i in range(20)],
+            "year": [2021] * 20,
+        })
+        existing.to_parquet(processed / "company_financials.parquet", index=False)
+
+        monkeypatch.setattr(transform, "RAW", raw)
+        monkeypatch.setattr(transform, "RAW_FINANCIALS", raw / "financials")
+        monkeypatch.setattr(transform, "RAW_SECTOR", raw / "sector")
+        monkeypatch.setattr(transform, "PROCESSED", processed)
+
+        result = transform.build_company_financials(
+            start_year=2021, end_year=2021, sample=None,
+        )
+
+        # Full run: output should have exactly 3 rows, not 20+3
+        assert len(result) == 3, (
+            f"Full run (sample=None) produced {len(result)} rows; "
+            f"expected 3 (no merge with existing)"
+        )
+
+
 # ─── Category 2: Schema contracts ────────────────────────────────────────────
 
 class TestSchemaContracts:
@@ -2506,50 +2664,57 @@ class TestDuckDBPathHelper:
 
 
 # ---------------------------------------------------------------------------
-# Category 30 — Beneish extreme outlier exclusions (DQ1)
+# Category 30 — Beneish component winsorization (replaces extreme outlier guard)
 # ---------------------------------------------------------------------------
 
-class TestBeneishExtremeOutliers:
-    """Guard that all m_score > 10 outliers are documented in BENEISH_EXTREME_OUTLIERS.
+class TestBeneishComponentWinsorization:
+    """Guard that beneish_screen.py produces clean component values.
 
-    Batch-classified via DART frmtrm_amount cross-check (Session 48). The constant
-    covers 33 company-years: 23 DART_CONFIRMED, 4 DART_RESTATED, 6 UNVERIFIABLE.
-    See 00_Reference/37_Extreme_Outlier_Classification.md for full methodology.
+    After session 51 methodology overhaul: inf values are replaced with NaN before
+    the M-Score formula, and components are winsorized at 1%/99% per year.
+    This replaces the previous BENEISH_EXTREME_OUTLIERS constant approach.
     """
 
-    def test_constant_exists(self):
-        """BENEISH_EXTREME_OUTLIERS must be importable from src.constants."""
-        from src.constants import BENEISH_EXTREME_OUTLIERS
-        assert isinstance(BENEISH_EXTREME_OUTLIERS, frozenset)
-
-    def test_covers_all_extreme_outliers(self):
-        """Every m_score > 10 row in beneish_scores must be in the exclusion set."""
-        from src.constants import BENEISH_EXTREME_OUTLIERS
+    @pytest.fixture(scope="class")
+    def beneish(self):
         scores_path = PROCESSED / "beneish_scores.parquet"
         if not scores_path.exists():
             pytest.skip("beneish_scores.parquet not present")
         df = pd.read_parquet(scores_path)
-        extreme = df[df["m_score"] > 10]
-        missing = []
-        for _, r in extreme.iterrows():
-            key = (r["corp_code"], int(r["year"]))
-            if key not in BENEISH_EXTREME_OUTLIERS:
-                missing.append(key)
-        assert not missing, (
-            f"{len(missing)} extreme outliers not in BENEISH_EXTREME_OUTLIERS: {missing[:5]}"
+        if df.empty:
+            pytest.skip("beneish_scores.parquet has 0 rows")
+        return df
+
+    def test_no_inf_in_components(self, beneish):
+        """All 8 Beneish components must be finite (no inf after winsorization)."""
+        components = ["dsri", "gmi", "aqi", "sgi", "depi", "sgai", "lvgi", "tata"]
+        for comp in components:
+            if comp not in beneish.columns:
+                continue
+            inf_count = np.isinf(beneish[comp].dropna()).sum()
+            assert inf_count == 0, (
+                f"{comp} has {inf_count} inf values — winsorization not applied"
+            )
+
+    def test_no_inf_in_m_score(self, beneish):
+        """m_score must not contain inf values."""
+        scored = beneish[beneish["m_score"].notna()]
+        inf_count = np.isinf(scored["m_score"]).sum()
+        assert inf_count == 0, (
+            f"m_score has {inf_count} inf values — inf replacement not applied"
         )
 
-    def test_minimum_count(self):
-        """The constant must have at least 33 entries (the known population)."""
-        from src.constants import BENEISH_EXTREME_OUTLIERS
-        assert len(BENEISH_EXTREME_OUTLIERS) >= 33, (
-            f"Expected >= 33, got {len(BENEISH_EXTREME_OUTLIERS)}"
-        )
-
-    def test_dq1_entries_present(self):
-        """The original DQ1-investigated entries must remain in the constant."""
-        from src.constants import BENEISH_EXTREME_OUTLIERS
-        for entry in [("01051092", 2020), ("01258428", 2022), ("01258428", 2023)]:
-            assert entry in BENEISH_EXTREME_OUTLIERS, (
-                f"DQ1 entry {entry} missing from BENEISH_EXTREME_OUTLIERS"
+    def test_winsorization_bounds(self, beneish):
+        """Component max values should be bounded by winsorization."""
+        components = ["dsri", "gmi", "aqi", "sgi", "depi", "sgai", "lvgi", "tata"]
+        for comp in components:
+            if comp not in beneish.columns:
+                continue
+            vals = beneish[comp].dropna()
+            if len(vals) < 20:
+                continue
+            max_val = vals.abs().max()
+            assert max_val < 10_000, (
+                f"{comp} max absolute value is {max_val:.1f} — "
+                f"expected bounded by winsorization"
             )

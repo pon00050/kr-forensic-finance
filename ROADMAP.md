@@ -216,14 +216,14 @@ Multi-agent design (Phase 4 target):
 
 | ID | Description | Phase | Effort |
 |---|---|---|---|
-| ~~PR5~~ | ~~Historical backfill 2014–2018~~ — **Partial-Complete (Session 50):** 2017–2018 backfill done; 2014–2016 deferred (most issuers resolved). `company_financials.parquet`: 7,042 → 9,310 rows (2019–2023 → 2017–2023). `beneish_scores.parquet`: 5,476 → 7,447 rows, 2018–2023, flagged 1,013 → 1,255. 25 new extreme outliers added to `BENEISH_EXTREME_OUTLIERS`. Beneish early-return Marimo bug fixed. | 4 | Medium |
+| ~~PR5~~ | ~~Historical backfill 2014–2018~~ — **Partial-Complete (Session 50):** 2017–2018 backfill done; 2014–2016 deferred (most issuers resolved). `company_financials.parquet`: 7,042 → 9,310 rows (2019–2023 → 2017–2023). `beneish_scores.parquet`: 7,447 rows, 2018–2023, flagged 1,250. Beneish early-return Marimo bug fixed. | 4 | Medium |
 | ~~A1~~ | ~~Automate recurring data refresh~~ — **Complete (Session 38):** `krff refresh` command added to `cli.py`; runs 6 stages in sequence (DART → transform → beneish_screen → cb_bw → timing → network); `--sample N` and `--skip-analysis` flags | 2 | Low |
 | I1 | Verify PyKRX from hosted IPs — **Infrastructure ready (Session 49):** `--backend` option added to `krff run`/`krff refresh`; `finance-datareader`+`yfinance` as `[hosted]` optional deps; `test-hosted-backends.yml` workflow_dispatch CI workflow; trigger from GitHub Actions UI to verify | 5 | Low |
-| ~~DQ1~~ | ~~XBRL unit-scale corrections~~ — **Complete (Session 48):** frmtrm_amount cross-check confirmed neither company is a unit error; `BENEISH_EXTREME_OUTLIERS` frozenset added to `src/constants.py`; 3 Category 30 tests added; 216 pass | 1 | Low |
+| ~~DQ1~~ | ~~XBRL unit-scale corrections~~ — **Complete (Session 48).** frmtrm_amount cross-check confirmed no unit errors. **Session 51:** `BENEISH_EXTREME_OUTLIERS` constant deprecated — replaced by component-level winsorization (Beneish 1999 methodology). Inf values replaced with NaN; 1%/99% per-year winsorization applied to all 8 components. | 1 | Low |
 
-**DQ1 outcome (Session 48):** Cross-checked both flagged companies via DART `frmtrm_amount` (prior-year restated column in the next year's raw parquet). Neither is a unit-scale error:
+**DQ1 outcome (Session 48):** Cross-checked both flagged companies via DART `frmtrm_amount`. Neither is a unit-scale error:
 
-- **피씨엘 (01051092) 2020:** 2021 filing confirms `frmtrm(2020)` = 53,682,669,587 (matches stored value exactly). Genuine COVID-19 diagnostics revenue explosion from near-zero 2019 base (35,811,000 KRW confirmed in 2020 filing `frmtrm`). SGI=1,499 and M-score=1,335 are mathematically correct but uninformative at this base scale. **No correction added.**
-- **프레스티지바이오로직스 (01258428) 2022/2023:** 2023 filing confirms `frmtrm(2022)` = 15,565,702 (matches stored value exactly). Genuine revenue volatility. **No correction added.**
+- **피씨엘 (01051092) 2020:** Genuine COVID-19 diagnostics revenue explosion. SGI=1,499, M-score=1,335 (now winsorized to bounded values).
+- **프레스티지바이오로직스 (01258428) 2022/2023:** Genuine revenue volatility. No correction needed.
 
-Both entries added to `BENEISH_EXTREME_OUTLIERS` in `src/constants.py` for exclusion from threshold calibration. Stats scripts should filter `beneish_scores` by this constant before any distribution-based calibration.
+Extreme values are now handled by per-year 1%/99% component winsorization in `beneish_screen.py`, not by a manual exclusion list.

@@ -214,6 +214,29 @@ def _compute_beneish(df_fin, np, pd, date):
     df["tata"] = (df["net_income"] - df["cfo"]) / ta
 
     # -----------------------------------------------------------------------
+    # Inf replacement + per-year component winsorization (Beneish 1999)
+    #
+    # Inf arises from zero denominators (e.g., LVGI when lt_debt_l=0, DSRI when
+    # receivables_l=0). These are structurally undefined, not manipulation signals.
+    # Replace with NaN so fillna(1.0) substitutes the neutral value.
+    #
+    # Per-year winsorization at 1%/99% clips extreme but finite ratios caused by
+    # small denominators, matching the methodology in Beneish (1999).
+    # -----------------------------------------------------------------------
+    _RATIO_COMPONENTS = ["dsri", "gmi", "aqi", "sgi", "depi", "sgai", "lvgi", "tata"]
+    for _comp in _RATIO_COMPONENTS:
+        df[_comp] = df[_comp].replace([np.inf, -np.inf], np.nan)
+
+    for _comp in _RATIO_COMPONENTS:
+        for _yr in df["year"].unique():
+            _mask = df["year"] == _yr
+            _vals = df.loc[_mask, _comp].dropna()
+            if len(_vals) < 20:
+                continue
+            _lo, _hi = _vals.quantile(0.01), _vals.quantile(0.99)
+            df.loc[_mask, _comp] = df.loc[_mask, _comp].clip(lower=_lo, upper=_hi)
+
+    # -----------------------------------------------------------------------
     # M-Score (Beneish 1999 8-variable)
     #
     # Null handling: use neutral value 1.0 for unavailable ratios so NaN
