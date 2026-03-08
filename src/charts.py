@@ -162,8 +162,8 @@ def chart_components(df: pd.DataFrame) -> go.Figure:
         color_discrete_map={"Flagged": "#e74c3c", "Not Flagged": "#3498db"},
         title=(
             "Median Beneish Component Values — Flagged vs. Non-Flagged Companies"
-            "<br><sup>Median used — component distributions (especially SGI) have extreme outliers "
-            "that distort means. 1.0 = neutral (no change year-over-year)</sup>"
+            "<br><sup>Median used — component distributions remain skewed even after "
+            "winsorization. 1.0 = neutral (no change year-over-year)</sup>"
         ),
         labels={"Median Value": "Median Value (1.0 = neutral)"},
     )
