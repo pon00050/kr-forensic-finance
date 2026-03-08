@@ -27,6 +27,7 @@ from src.constants import (
     TIMING_PRICE_CHANGE_PCT,
     TIMING_VOLUME_RATIO,
     TIMING_BORDERLINE_PRICE_PCT,
+    TIMING_GAP_HOURS_ASSUMED,
 )
 
 log = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ class CbBwResult(TypedDict):
     holdings_flag:          bool
     volume_ratio:           float | None
     peak_date:              str | None
+    peak_before_issue:      bool
     dart_link:              str
 
 
@@ -171,11 +173,11 @@ def score_events(
             event_vol = df_window[vol_col].mean()
             if baseline_vol and baseline_vol > 0:
                 volume_ratio = event_vol / baseline_vol
+                flag_details["volume_ratio"] = round(float(volume_ratio), 2)
                 if volume_ratio > VOLUME_SURGE_RATIO:
                     volume_flag = True
         if volume_flag:
             flags.append(FLAG_VOLUME_SURGE)
-            flag_details["volume_ratio"] = round(float(volume_ratio), 2)
 
         # Flag 4: Officer holdings decrease post-exercise
         holdings_flag = False
@@ -196,6 +198,11 @@ def score_events(
             flags.append(FLAG_HOLDINGS_DECREASE)
 
         anomaly_score = len(flags)
+        peak_date_val = flag_details.get("peak_date")
+        peak_before_issue = (
+            peak_date_val is not None
+            and pd.Timestamp(peak_date_val) < issue_date
+        )
         row: CbBwResult = {
             "corp_code": corp_code,
             "ticker": ticker,
@@ -210,7 +217,8 @@ def score_events(
             "volume_flag": FLAG_VOLUME_SURGE in flags,
             "holdings_flag": FLAG_HOLDINGS_DECREASE in flags,
             "volume_ratio": flag_details.get("volume_ratio"),
-            "peak_date": flag_details.get("peak_date"),
+            "peak_date": peak_date_val,
+            "peak_before_issue": peak_before_issue,
             "dart_link": f"https://dart.fss.or.kr/corp/searchAjax.do?textCrpCik={corp_code}",
         }
         results.append(row)
@@ -261,7 +269,12 @@ def score_disclosures(
                 continue
 
             anomaly_score = abs(price_chg) * vol_ratio * gap_hours
-            flag = abs(price_chg) >= TIMING_PRICE_CHANGE_PCT and vol_ratio >= TIMING_VOLUME_RATIO
+            is_material = bool(disc.get("is_material", False))
+            flag = (
+                is_material
+                and abs(price_chg) >= TIMING_PRICE_CHANGE_PCT
+                and vol_ratio >= TIMING_VOLUME_RATIO
+            )
 
             if flag or abs(price_chg) >= TIMING_BORDERLINE_PRICE_PCT:
                 results.append({
@@ -270,7 +283,7 @@ def score_disclosures(
                     "filing_date": str(t_date.date()),
                     "check_date": str(check_date.date()),
                     "timing": label,
-                    "disclosure_type": disc.get("type"),
+                    "disclosure_type": disc.get("disclosure_type"),
                     "title": disc.get("title"),
                     "price_change_pct": round(price_chg, 2),
                     "volume_ratio": round(vol_ratio, 2),

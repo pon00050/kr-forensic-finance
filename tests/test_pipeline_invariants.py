@@ -2930,3 +2930,275 @@ class TestAudit:
         text = format_audit(result, verbose=True)
 
         assert "inp.json" in text
+
+
+# ─── Category 31: Phase 2 scoring invariants ─────────────────────────────────
+
+class TestScoringInvariants:
+    """
+    Unit-level guard tests for 03_Analysis/_scoring.py and run_timing_anomalies.py.
+    All tests use synthetic DataFrames — no real parquets or network calls required.
+
+    Tests 1–6 from the session-61 quality-fix plan:
+      1. volume_ratio populated for all CB/BW events that have price data (fix A1)
+      2. timing flag requires is_material=True (fix A2)
+      3. disclosure_type derived from title keywords (fix A3)
+      4. TIMING_GAP_HOURS_ASSUMED constant exists in src.constants (fix B1)
+      5. peak_before_issue column present in score_events output (fix B2)
+      6. corporate reporters excluded from appears_in_multiple_flagged (fix A4)
+    """
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    @classmethod
+    def _add_analysis_path(cls):
+        analysis_dir = str(ROOT / "03_Analysis")
+        if analysis_dir not in sys.path:
+            sys.path.insert(0, analysis_dir)
+
+    def _make_price_volume(self, ticker: str, n_rows: int = 150) -> pd.DataFrame:
+        """Synthetic price/volume DataFrame for one ticker."""
+        dates = pd.date_range("2020-01-01", periods=n_rows, freq="B")
+        return pd.DataFrame({
+            "ticker": ticker,
+            "date": dates,
+            "close": np.linspace(5000, 6000, n_rows),
+            "volume": np.full(n_rows, 10_000),
+        })
+
+    def _make_cb_event(
+        self,
+        corp_code: str,
+        issue_date: str,
+        volume_override: float | None = None,
+    ) -> pd.Series:
+        return pd.Series({
+            "corp_code": corp_code,
+            "issue_date": issue_date,
+            "bond_type": "CB",
+            "exercise_price": 5000,
+            "repricing_history": "[]",
+            "exercise_events": "[]",
+        })
+
+    def _make_pv_clean_with_volume(
+        self,
+        ticker: str,
+        n_rows: int = 150,
+        event_volume: float = 30_000,
+    ) -> pd.DataFrame:
+        """Price/volume with 30 pre-event rows at baseline 10K and 120 event rows at event_volume."""
+        pre = self._make_price_volume(ticker, n_rows=30)
+        event = self._make_price_volume(ticker, n_rows=n_rows)
+        event["date"] = pd.date_range("2021-01-01", periods=n_rows, freq="B")
+        event["volume"] = event_volume
+        return pd.concat([pre, event], ignore_index=True)
+
+    # ── Test 1: volume_ratio always populated ─────────────────────────────────
+
+    def test_volume_ratio_populated_for_all_events_with_price_data(self):
+        """Fix A1: volume_ratio must be non-null even when volume_flag=False."""
+        self._add_analysis_path()
+        from _scoring import score_events
+
+        # Two events: one 4x baseline (above threshold), one 1.5x (below threshold)
+        df_cb = pd.DataFrame([
+            {"corp_code": "00000001", "issue_date": "2021-06-01", "bond_type": "CB",
+             "exercise_price": 5000, "repricing_history": "[]", "exercise_events": "[]"},
+            {"corp_code": "00000002", "issue_date": "2021-06-01", "bond_type": "CB",
+             "exercise_price": 5000, "repricing_history": "[]", "exercise_events": "[]"},
+        ])
+
+        pv_high = self._make_pv_clean_with_volume("A001", event_volume=40_000)   # 4× → flag
+        pv_low  = self._make_pv_clean_with_volume("A002", event_volume=15_000)   # 1.5× → no flag
+
+        df_pv = pd.concat([pv_high, pv_low], ignore_index=True)
+        df_map = pd.DataFrame({"corp_code": ["00000001", "00000002"], "ticker": ["A001", "A002"]})
+        df_oh  = pd.DataFrame(columns=["corp_code", "officer_name", "date", "change_shares"])
+
+        result = score_events(df_cb, df_pv, df_oh, df_map)
+        assert len(result) == 2, f"Expected 2 rows, got {len(result)}"
+        null_vr = result["volume_ratio"].isna().sum()
+        assert null_vr == 0, (
+            f"volume_ratio is null for {null_vr}/2 rows. "
+            "Fix A1: volume_ratio must be stored even when volume_flag=False."
+        )
+
+    # ── Test 2: timing flag requires is_material ──────────────────────────────
+
+    def test_timing_flag_requires_materiality(self):
+        """Fix A2: flag=True only when is_material=True AND price/volume thresholds met."""
+        self._add_analysis_path()
+        from _scoring import score_disclosures
+
+        df_map = pd.DataFrame({"corp_code": ["00000010"], "ticker": ["T010"]})
+
+        disc_date = pd.Timestamp("2021-06-01")
+        df_disc = pd.DataFrame([
+            # is_material=True + big move → should flag
+            {"corp_code": "00000010", "trading_date": disc_date, "gap_hours": 2.5,
+             "is_material": True, "disclosure_type": "주요사항보고", "title": "전환사채 발행결정",
+             "dart_link": ""},
+            # is_material=False + same big move → must NOT flag
+            {"corp_code": "00000010", "trading_date": disc_date, "gap_hours": 2.5,
+             "is_material": False, "disclosure_type": "기타", "title": "기타 공시",
+             "dart_link": ""},
+        ])
+
+        # Price/volume that triggers both thresholds: 10% price change, 3× volume
+        df_pv = pd.DataFrame({
+            "ticker": ["T010", "T010"],
+            "date": [disc_date, disc_date - pd.Timedelta(days=1)],
+            "price_change_pct": [10.0, 0.0],
+            "volume_ratio": [3.0, 1.0],
+        })
+        df_pv = df_pv.set_index(["ticker", "date"])
+        # Pass as the clean pv: reconstruct so score_disclosures can index it
+        df_pv_clean = pd.DataFrame({
+            "ticker": ["T010", "T010"],
+            "date": [disc_date, disc_date - pd.Timedelta(days=1)],
+            "price_change_pct": [10.0, 0.0],
+            "volume_ratio": [3.0, 1.0],
+        })
+
+        result = score_disclosures(df_disc, df_pv_clean, df_map)
+        # Only the is_material=True row should have flag=True
+        flagged = result[result["flag"] == True]
+        non_flagged_titles = result[result["flag"] == False]["title"].tolist()
+        assert len(flagged) >= 1, "Expected at least one flagged row for is_material=True"
+        for _, row in flagged.iterrows():
+            assert row.get("is_material", False) is True or row.get("is_material", False), (
+                f"Flagged row has is_material={row.get('is_material')} — fix A2 not applied"
+            )
+        # The non-material row must not be flagged (it may appear in output at borderline, but flag=False)
+        for _, row in result[result["title"] == "기타 공시"].iterrows():
+            assert row["flag"] is False or row["flag"] == False, (
+                "Non-material row must have flag=False — fix A2 not applied"
+            )
+
+    # ── Test 3: disclosure_type derived from title ────────────────────────────
+
+    def test_disclosure_type_derived_from_title(self):
+        """Fix A3: prepare_disclosures must populate disclosure_type from title keywords."""
+        self._add_analysis_path()
+        # Import the function directly from the runner module
+        import importlib
+        import importlib.util
+        runner_path = ROOT / "03_Analysis" / "run_timing_anomalies.py"
+        spec = importlib.util.spec_from_file_location("run_timing_anomalies", runner_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+
+        df_disc = pd.DataFrame([
+            {"corp_code": "00000001", "filed_at": "20210601", "title": "전환사채 발행결정",
+             "type": "", "dart_link": ""},
+            {"corp_code": "00000001", "filed_at": "20210602", "title": "2023년 사업보고서",
+             "type": "", "dart_link": ""},
+            {"corp_code": "00000001", "filed_at": "20210603", "title": "",
+             "type": "", "dart_link": ""},
+        ])
+
+        result = mod.prepare_disclosures(df_disc)
+        assert "disclosure_type" in result.columns, (
+            "disclosure_type column missing from prepare_disclosures output"
+        )
+        title_to_type = dict(zip(result["title"].tolist(), result["disclosure_type"].tolist()))
+        assert title_to_type.get("전환사채 발행결정") == "주요사항보고", (
+            f"Expected '주요사항보고' for '전환사채 발행결정', got {title_to_type.get('전환사채 발행결정')!r}"
+        )
+        assert title_to_type.get("2023년 사업보고서") == "정기공시", (
+            f"Expected '정기공시' for '사업보고서', got {title_to_type.get('2023년 사업보고서')!r}"
+        )
+        assert title_to_type.get("") == "기타", (
+            f"Expected '기타' for empty title, got {title_to_type.get('')!r}"
+        )
+
+    # ── Test 4: TIMING_GAP_HOURS_ASSUMED constant ────────────────────────────
+
+    def test_gap_hours_constant_exists_in_constants(self):
+        """Fix B1: TIMING_GAP_HOURS_ASSUMED must exist in src.constants and equal 2.5."""
+        import src.constants as constants
+        assert hasattr(constants, "TIMING_GAP_HOURS_ASSUMED"), (
+            "TIMING_GAP_HOURS_ASSUMED missing from src/constants.py"
+        )
+        assert constants.TIMING_GAP_HOURS_ASSUMED == 2.5, (
+            f"Expected 2.5, got {constants.TIMING_GAP_HOURS_ASSUMED}"
+        )
+
+    # ── Test 5: peak_before_issue column ─────────────────────────────────────
+
+    def test_peak_before_issue_column_in_cb_bw_output(self):
+        """Fix B2: score_events output must include peak_before_issue boolean column."""
+        self._add_analysis_path()
+        from _scoring import score_events
+
+        df_cb = pd.DataFrame([
+            # Event issued 2021-06-01; price window symmetric ±60 days
+            # The price is highest on 2021-01-02 (pre-issuance) → peak_before_issue=True
+            {"corp_code": "00000020", "issue_date": "2021-06-01", "bond_type": "CB",
+             "exercise_price": 5000, "repricing_history": "[]", "exercise_events": "[]"},
+        ])
+
+        # Build price series where peak is clearly before issue_date
+        dates_pre  = pd.date_range("2021-01-01", periods=30, freq="B")   # high price
+        dates_post = pd.date_range("2021-06-01", periods=90, freq="B")   # lower price
+        pv = pd.DataFrame({
+            "ticker": "P020",
+            "date": pd.concat([pd.Series(dates_pre), pd.Series(dates_post)]).reset_index(drop=True),
+            "close": list(np.linspace(9000, 8000, 30)) + list(np.linspace(4000, 5000, 90)),
+            "volume": 10_000,
+        })
+
+        df_map = pd.DataFrame({"corp_code": ["00000020"], "ticker": ["P020"]})
+        df_oh  = pd.DataFrame(columns=["corp_code", "officer_name", "date", "change_shares"])
+
+        result = score_events(df_cb, pv, df_oh, df_map)
+        assert "peak_before_issue" in result.columns, (
+            "peak_before_issue column missing — fix B2 not applied"
+        )
+        assert result["peak_before_issue"].dtype == bool or pd.api.types.is_bool_dtype(result["peak_before_issue"]), (
+            f"peak_before_issue must be bool dtype, got {result['peak_before_issue'].dtype}"
+        )
+        assert result.iloc[0]["peak_before_issue"] is True or result.iloc[0]["peak_before_issue"] == True, (
+            "Expected peak_before_issue=True when peak price is clearly pre-issuance"
+        )
+
+    # ── Test 6: corporate reporters excluded from appears_in_multiple_flagged ─
+
+    def test_corporate_reporters_excluded_from_appears_in_multiple_flagged(self):
+        """Fix A4: appears_in_multiple_flagged must be False for corporate reporters."""
+        self._add_analysis_path()
+        import importlib.util
+        runner_path = ROOT / "03_Analysis" / "run_officer_network.py"
+        spec = importlib.util.spec_from_file_location("run_officer_network", runner_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+
+        try:
+            import networkx as nx
+        except ImportError:
+            pytest.skip("networkx not installed")
+
+        # Build a minimal graph: one corporate holder in 3 flagged companies
+        G = nx.DiGraph()
+        corp_holder = "ABC홀딩스"
+        G.add_node(f"person:{corp_holder}", label=corp_holder, node_type="person", is_corporate=True)
+        for i in range(3):
+            cc = f"0000000{i}"
+            G.add_node(f"corp:{cc}", label=f"Company{i}", node_type="company", flagged=True)
+            G.add_edge(f"person:{corp_holder}", f"corp:{cc}", edge_type="officer_at", weight=1.0)
+
+        flagged_companies = {"00000000", "00000001", "00000002"}
+        corp_name_set = {"ABC홀딩스"}  # exact match → is_corporate_reporter = True
+        code_to_name = {}
+        code_to_ticker = {}
+
+        df = mod.compute_centrality(G, flagged_companies, code_to_name, code_to_ticker, corp_name_set)
+        assert len(df) == 1, f"Expected 1 person row, got {len(df)}"
+        row = df.iloc[0]
+        assert row["is_corporate_reporter"] is True or row["is_corporate_reporter"] == True, (
+            "ABC홀딩스 should be classified as a corporate reporter"
+        )
+        assert row["appears_in_multiple_flagged"] is False or row["appears_in_multiple_flagged"] == False, (
+            "Corporate reporter ABC홀딩스 must have appears_in_multiple_flagged=False — fix A4 not applied"
+        )

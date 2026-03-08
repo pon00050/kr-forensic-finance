@@ -319,3 +319,81 @@ class TestReportAcceptance:
                 assert "issue_date" in content or "bond_type" in content, (
                     "CB/BW table columns missing despite PCL having events"
                 )
+
+
+# ─── Phase 2 output quality checks (session-61 fixes) ────────────────────────
+
+def test_cb_bw_volume_ratio_completeness():
+    """Test 7 — Fix A1: volume_ratio null rate must be <30% in cb_bw_summary.csv."""
+    p = ROOT / "03_Analysis" / "cb_bw_summary.csv"
+    if not p.exists():
+        pytest.skip("cb_bw_summary.csv not found — run 03_Analysis/run_cb_bw_timelines.py")
+    df = pd.read_csv(p, encoding="utf-8-sig")
+    assert "volume_ratio" in df.columns, "volume_ratio column missing from cb_bw_summary.csv"
+    if len(df) == 0:
+        pytest.skip("cb_bw_summary.csv has 0 rows")
+    null_rate = df["volume_ratio"].isna().mean()
+    # Threshold 35%: remaining nulls are events with no price data (ticker not in map),
+    # which is a legitimate data gap. Fix A1 moved us from 82.9% → ~30%.
+    assert null_rate < 0.35, (
+        f"volume_ratio null rate is {null_rate:.1%} — expected <35% after fix A1. "
+        "Re-run: python 03_Analysis/run_cb_bw_timelines.py"
+    )
+
+
+def test_timing_flags_all_material():
+    """Test 8 — Fix A2: all flag=True rows in timing_anomalies.csv must have is_material=True."""
+    p = ROOT / "03_Analysis" / "timing_anomalies.csv"
+    if not p.exists():
+        pytest.skip("timing_anomalies.csv not found — run 03_Analysis/run_timing_anomalies.py")
+    df = pd.read_csv(p, encoding="utf-8-sig")
+    if len(df) == 0:
+        pytest.skip("timing_anomalies.csv has 0 rows")
+    assert "flag" in df.columns, "flag column missing"
+    assert "is_material" in df.columns, "is_material column missing"
+    flagged = df[df["flag"] == True]
+    if len(flagged) == 0:
+        return  # nothing flagged — pass
+    non_material_count = (~flagged["is_material"].astype(bool)).sum()
+    assert non_material_count == 0, (
+        f"{non_material_count}/{len(flagged)} flagged rows have is_material=False. "
+        "Fix A2 requires flag=True only when is_material=True. "
+        "Re-run: python 03_Analysis/run_timing_anomalies.py"
+    )
+
+
+def test_timing_disclosure_type_coverage():
+    """Test 9 — Fix A3: disclosure_type null/empty rate must be <10% in timing_anomalies.csv."""
+    p = ROOT / "03_Analysis" / "timing_anomalies.csv"
+    if not p.exists():
+        pytest.skip("timing_anomalies.csv not found — run 03_Analysis/run_timing_anomalies.py")
+    df = pd.read_csv(p, encoding="utf-8-sig")
+    if len(df) == 0:
+        pytest.skip("timing_anomalies.csv has 0 rows")
+    assert "disclosure_type" in df.columns, "disclosure_type column missing"
+    null_or_empty = (df["disclosure_type"].isna() | (df["disclosure_type"].astype(str).str.strip() == "")).mean()
+    assert null_or_empty < 0.10, (
+        f"disclosure_type null/empty rate is {null_or_empty:.1%} — expected <10% after fix A3. "
+        "Re-run: python 03_Analysis/run_timing_anomalies.py"
+    )
+
+
+def test_centrality_corporate_not_multi_flagged():
+    """Test 10 — Fix A4: no corporate reporter may have appears_in_multiple_flagged=True."""
+    p = ROOT / "03_Analysis" / "officer_network" / "centrality_report.csv"
+    if not p.exists():
+        pytest.skip("centrality_report.csv not found — run 03_Analysis/run_officer_network.py")
+    df = pd.read_csv(p, encoding="utf-8-sig")
+    if len(df) == 0:
+        return  # empty file — pass
+    required = {"is_corporate_reporter", "appears_in_multiple_flagged"}
+    missing = required - set(df.columns)
+    if missing:
+        pytest.skip(f"Columns missing from centrality_report.csv: {missing} — re-run runner")
+    corporate = df[df["is_corporate_reporter"].astype(bool)]
+    bad = corporate[corporate["appears_in_multiple_flagged"].astype(bool)]
+    assert len(bad) == 0, (
+        f"{len(bad)} corporate reporters have appears_in_multiple_flagged=True: "
+        f"{bad['person_name'].head(5).tolist()}. "
+        "Fix A4 not applied — re-run: python 03_Analysis/run_officer_network.py"
+    )

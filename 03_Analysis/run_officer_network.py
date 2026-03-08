@@ -215,7 +215,10 @@ def compute_centrality(G: nx.DiGraph, flagged_companies: set,
             "tickers": ", ".join(t for t in tickers[:10] if t),
             "companies": ", ".join(companies[:10]),
             "betweenness_centrality": round(centrality.get(node, 0.0), 6),
-            "appears_in_multiple_flagged": flagged_count >= 2,
+            "appears_in_multiple_flagged": (
+                flagged_count >= 2
+                and not is_corporate_reporter(person_name, corp_name_set)
+            ),
         })
 
     df = pd.DataFrame(rows)

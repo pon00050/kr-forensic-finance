@@ -5,9 +5,9 @@
 | # | Milestone | Status | Script |
 |---|---|---|---|
 | 1 | Beneish M-Score screen | Complete | `beneish_screen.py` |
-| 2 | CB/BW timelines | Implemented, runnable | `cb_bw_timelines.py` |
-| 3 | Timing anomalies | Implemented, runnable | `timing_anomalies.py` |
-| 4 | Officer network graph | Implemented, runnable | `officer_network.py` |
+| 2 | CB/BW timelines | Implemented, runnable — output quality improved (session 61) | `cb_bw_timelines.py` |
+| 3 | Timing anomalies | Implemented, runnable — output quality improved (session 61) | `timing_anomalies.py` |
+| 4 | Officer network graph | Implemented, runnable — output quality improved (session 61) | `officer_network.py` |
 
 ## Phase 2 Data (extracted)
 

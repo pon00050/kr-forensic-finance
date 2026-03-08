@@ -21,6 +21,9 @@ PRICE_WINDOW_DAYS = 60
 TIMING_PRICE_CHANGE_PCT = 5.0
 TIMING_VOLUME_RATIO = 2.0
 TIMING_BORDERLINE_PRICE_PCT = 3.0
+# DART listing API returns YYYYMMDD only (no time); 18:00 KST assumed for gap_hours.
+# Market close: 15:30 KST (15.5 decimal hours). Gap = 18.0 - 15.5 = 2.5 hours.
+TIMING_GAP_HOURS_ASSUMED = 2.5
 
 # Officer network
 OFFICER_FLAG_THRESHOLD = 2
