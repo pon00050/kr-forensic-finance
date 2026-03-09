@@ -3541,3 +3541,86 @@ class TestGroupedCV:
         assert "groups=" in src, (
             "rf_feature_importance.py does not pass groups= argument — GroupKFold not wired in"
         )
+
+
+# ─── Fix 4: Regularization Path ───────────────────────────────────────────────
+
+class TestLassoPath:
+    """compute_lasso_path() must return a well-formed regularization path DataFrame."""
+
+    def _load_module(self):
+        from importlib.util import spec_from_file_location, module_from_spec
+        p = ROOT / "03_Analysis" / "statistical_tests" / "lasso_beneish.py"
+        spec = spec_from_file_location("lasso_beneish", p)
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_lasso_path_columns(self):
+        """Path DataFrame must have 'alpha' plus all 8 Beneish component columns."""
+        mod = self._load_module()
+        rng = np.random.default_rng(0)
+        X = rng.standard_normal((30, 8))
+        y = rng.integers(0, 2, size=30).astype(float)
+        components = ["dsri", "gmi", "aqi", "sgi", "depi", "sgai", "tata", "lvgi"]
+        path = mod.compute_lasso_path(X, y, components)
+        assert "alpha" in path.columns, "Path missing 'alpha' column"
+        for c in components:
+            assert c in path.columns, f"Path missing component column '{c}'"
+
+    def test_lasso_path_zeroes_at_max_alpha(self):
+        """At the highest alpha (strongest regularization), all component coefs must be ≈ 0."""
+        mod = self._load_module()
+        rng = np.random.default_rng(1)
+        X = rng.standard_normal((30, 8))
+        y = rng.integers(0, 2, size=30).astype(float)
+        components = ["dsri", "gmi", "aqi", "sgi", "depi", "sgai", "tata", "lvgi"]
+        path = mod.compute_lasso_path(X, y, components)
+        # First row = max alpha = strongest regularization → all coefs should be 0
+        first_row = path.iloc[0][components]
+        assert (first_row.abs() < 1e-6).all(), (
+            f"At max alpha, some coefs are nonzero: {first_row[first_row.abs() >= 1e-6].to_dict()}"
+        )
+
+    def test_lasso_path_length(self):
+        """Path must have 100 rows (one per alpha value)."""
+        mod = self._load_module()
+        rng = np.random.default_rng(2)
+        X = rng.standard_normal((30, 8))
+        y = rng.integers(0, 2, size=30).astype(float)
+        components = ["dsri", "gmi", "aqi", "sgi", "depi", "sgai", "tata", "lvgi"]
+        path = mod.compute_lasso_path(X, y, components)
+        assert len(path) == 100, f"Expected 100 rows, got {len(path)}"
+
+
+# ─── Fix 5: EPV Check ─────────────────────────────────────────────────────────
+
+class TestEPVCheck:
+    """events_per_variable() must correctly compute and flag low-EPV situations."""
+
+    def _load_module(self):
+        from importlib.util import spec_from_file_location, module_from_spec
+        p = ROOT / "03_Analysis" / "statistical_tests" / "lasso_beneish.py"
+        spec = spec_from_file_location("lasso_beneish", p)
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_epv_formula(self):
+        """EPV = n_fraud / n_components."""
+        mod = self._load_module()
+        assert mod.events_per_variable(17, 8) == pytest.approx(17 / 8)
+        assert mod.events_per_variable(80, 8) == pytest.approx(10.0)
+
+    def test_epv_below_threshold(self):
+        """EPV < 10 is the warning threshold (accepted minimum 10–15)."""
+        mod = self._load_module()
+        assert mod.events_per_variable(17, 8) < 10, (
+            "KOSDAQ labeled set (17 fraud=1, 8 components) should be below EPV=10"
+        )
+
+    def test_epv_zero_components_safe(self):
+        """events_per_variable must not divide by zero."""
+        mod = self._load_module()
+        result = mod.events_per_variable(17, 0)
+        assert result == 0.0

@@ -133,6 +133,17 @@ Findings remain directional until scripts are re-run with new CI values recorded
 
 8 new invariant tests added (261 total). Re-run scripts to update calibration values in MEMORY.md.
 
+## Chapter 6 Methodological Additions — Session 65
+
+Two Chapter 6 (ISL) outputs added to `lasso_beneish.py` (session 65, Mar 9 2026).
+
+| # | Addition | Output | Detail |
+|---|---------|--------|--------|
+| 4 | Regularization path | `lasso_path.csv` + `lasso_path.png` | `compute_lasso_path()` helper using `sklearn.lasso_path()`; 100-alpha × 8-component matrix; Plotly line chart; shows entry order as penalty decreases |
+| 5 | EPV check | EPV printed at startup; `epv` column in `lasso_coefficients.csv` | `events_per_variable()` helper; 17/8 = 2.1 (below accepted minimum 10–15); WARNING printed when EPV < 10 |
+
+6 new invariant tests added (267 total). `lasso_beneish.py` re-run required to generate `lasso_path.csv` / `lasso_path.png`.
+
 ## Output Quality Issues — Session 62 Review
 
 Identified by `/review-pipeline` on 2026-03-08. Address before next statistical test run.
