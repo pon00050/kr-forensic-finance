@@ -3820,3 +3820,81 @@ class TestGMMAICBIC:
         assert np.isfinite(df["gmm_bic"].values).all(), "gmm_bic contains inf"
         assert df["gmm_aic"].notna().all(), "gmm_aic contains NaN"
         assert np.isfinite(df["gmm_aic"].values).all(), "gmm_aic contains inf"
+
+
+class TestPi0Estimate:
+    """pi0_estimate() must implement Storey (2002) π₀ correctly."""
+
+    def _load_module(self):
+        from importlib.util import spec_from_file_location, module_from_spec
+        p = ROOT / "03_Analysis" / "statistical_tests" / "fdr_timing_anomalies.py"
+        spec = spec_from_file_location("fdr_timing_anomalies", p)
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_pi0_uniform_null(self):
+        """Uniform p-values (pure null) → π₀ ≈ 1.0."""
+        mod = self._load_module()
+        rng = np.random.default_rng(0)
+        pvals = rng.uniform(0, 1, size=10_000)
+        pi0 = mod.pi0_estimate(pvals, lambda_=0.5)
+        # Storey estimator on U[0,1] converges to 1.0; allow ±10% sampling noise
+        assert 0.90 <= pi0 <= 1.0, f"Expected π₀≈1.0 for uniform null, got {pi0:.4f}"
+
+    def test_pi0_all_near_zero(self):
+        """All p-values near 0 (strong signal) → π₀ near 0."""
+        mod = self._load_module()
+        pvals = np.full(500, 0.001)   # all well below lambda=0.5
+        pi0 = mod.pi0_estimate(pvals, lambda_=0.5)
+        assert pi0 < 0.05, f"Expected π₀≈0 for all-signal p-values, got {pi0:.4f}"
+
+    def test_pi0_clipped_at_one(self):
+        """π₀ must never exceed 1.0 even if numerics suggest it."""
+        mod = self._load_module()
+        # p-values all above lambda → ratio could numerically exceed 1
+        pvals = np.array([0.6, 0.7, 0.8, 0.9, 0.95])
+        pi0 = mod.pi0_estimate(pvals, lambda_=0.5)
+        assert pi0 <= 1.0, f"π₀ must be clipped to 1.0, got {pi0:.4f}"
+
+
+class TestBonferroniCompare:
+    """bonferroni_compare() must implement ISL §13.3 vs §13.4 comparison correctly."""
+
+    def _load_module(self):
+        from importlib.util import spec_from_file_location, module_from_spec
+        p = ROOT / "03_Analysis" / "statistical_tests" / "fdr_disclosure_leakage.py"
+        spec = spec_from_file_location("fdr_disclosure_leakage", p)
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_bonferroni_columns(self):
+        """Output must have exactly ['p_value', 'bonferroni_reject', 'bh_reject', 'agreement']."""
+        mod = self._load_module()
+        pvals = np.array([0.001, 0.01, 0.05, 0.1, 0.5])
+        df = mod.bonferroni_compare(pvals, alpha=0.05)
+        assert set(df.columns) == {"p_value", "bonferroni_reject", "bh_reject", "agreement"}, (
+            f"Column mismatch: {set(df.columns)}"
+        )
+
+    def test_bonferroni_row_count(self):
+        """Must return exactly len(pvals) rows."""
+        mod = self._load_module()
+        rng = np.random.default_rng(0)
+        pvals = rng.uniform(0, 1, size=100)
+        df = mod.bonferroni_compare(pvals, alpha=0.05)
+        assert len(df) == 100, f"Expected 100 rows, got {len(df)}"
+
+    def test_bh_at_least_bonferroni(self):
+        """BH must reject ≥ Bonferroni rejections (BH is less conservative). ISL §13.3/13.4."""
+        mod = self._load_module()
+        rng = np.random.default_rng(1)
+        # Mix: 20 small p-values (signal) + 80 uniform (null)
+        pvals = np.concatenate([rng.uniform(0, 0.01, 20), rng.uniform(0, 1, 80)])
+        df = mod.bonferroni_compare(pvals, alpha=0.05)
+        bh_n   = df["bh_reject"].sum()
+        bonf_n = df["bonferroni_reject"].sum()
+        assert bh_n >= bonf_n, (
+            f"BH must reject ≥ Bonferroni: BH={bh_n}, Bonferroni={bonf_n}"
+        )

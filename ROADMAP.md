@@ -170,6 +170,17 @@ Two Chapter 12 (ISL — Unsupervised Learning) outputs added (session 67, Mar 9 
 
 6 new invariant tests added (282 total). Both scripts need re-run to generate new outputs.
 
+## Chapter 13 Methodological Additions — Session 68
+
+Two Chapter 13 (ISL — Multiple Testing) outputs added (session 68, Mar 9 2026).
+
+| # | Addition | Script | Output | Detail |
+|---|---------|--------|--------|--------|
+| 10 | Storey π₀ estimator | `fdr_timing_anomalies.py` | `fdr_timing_summary.csv` | `pi0_estimate()` helper; Storey (2002) method; `#{p>λ}/(m·(1−λ))`; clipped to [0,1]; reports proportion of true nulls and expected false discoveries; 1-row summary CSV |
+| 11 | Bonferroni vs BH comparison | `fdr_disclosure_leakage.py` | `fdr_bonferroni_compare.csv` | `bonferroni_compare()` helper; ISL §13.3 (FWER) vs §13.4 (FDR); per-test rejection flags for both methods; agreement column; BH guaranteed ≥ Bonferroni rejections |
+
+6 new invariant tests added (288 total). Both scripts need re-run to generate new outputs.
+
 ## Output Quality Issues — Session 62 Review
 
 Identified by `/review-pipeline` on 2026-03-08. Address before next statistical test run.
