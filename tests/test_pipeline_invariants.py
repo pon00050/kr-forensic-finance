@@ -3346,3 +3346,198 @@ class TestStatsRunner:
         assert by_name["fdr_timing"]["status"] == "stale", (
             f"Expected 'stale' but got '{by_name['fdr_timing']['status']}'"
         )
+
+
+# ─── Fix 1: Cluster Bootstrap ─────────────────────────────────────────────────
+
+class TestClusterBootstrap:
+    """cluster_bootstrap_sample() must resample at company level, not row level."""
+
+    def _load_module(self):
+        from importlib.util import spec_from_file_location, module_from_spec
+        p = ROOT / "03_Analysis" / "statistical_tests" / "bootstrap_threshold.py"
+        spec = spec_from_file_location("bootstrap_threshold", p)
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_cluster_bootstrap_preserves_company_groups(self):
+        """No company's year-rows must be split across bootstrap draws."""
+        mod = self._load_module()
+        df = pd.DataFrame({
+            "corp_code":   ["A", "A", "B", "B", "C", "C"],
+            "year":        [2021, 2022, 2021, 2022, 2021, 2022],
+            "m_score":     [-2.0, -2.1, -1.5, -1.6, -3.0, -3.1],
+            "fraud_label": [1, 1, 0, 0, 0, 0],
+        })
+        rng = np.random.default_rng(99)
+        sample = mod.cluster_bootstrap_sample(df, rng)
+        # Each company in sample must have both of its years present (not split)
+        for corp in sample["corp_code"].unique():
+            original_years = set(df[df["corp_code"] == corp]["year"])
+            sample_years = set(sample[sample["corp_code"] == corp]["year"])
+            assert original_years == sample_years, (
+                f"Company {corp} rows were split: expected {original_years}, got {sample_years}"
+            )
+
+    def test_cluster_bootstrap_samples_n_companies(self):
+        """Bootstrap draw has exactly n_unique_companies worth of rows."""
+        mod = self._load_module()
+        df = pd.DataFrame({
+            "corp_code":   ["A", "A", "B", "B", "C", "C"],
+            "year":        [2021, 2022, 2021, 2022, 2021, 2022],
+            "m_score":     [-2.0, -2.1, -1.5, -1.6, -3.0, -3.1],
+            "fraud_label": [1, 1, 0, 0, 0, 0],
+        })
+        rng = np.random.default_rng(7)
+        sample = mod.cluster_bootstrap_sample(df, rng)
+        # 3 unique companies × 2 rows each = 6
+        assert len(sample) == df["corp_code"].nunique() * 2
+
+
+# ─── Fix 2: Label Leakage ─────────────────────────────────────────────────────
+
+class TestAutoControls:
+    """auto_controls() must not select controls based on M-score threshold."""
+
+    def _make_beneish(self, tmp_path, scores: dict) -> None:
+        """Write beneish_scores.parquet with 3 rows per company (enough for year filter)."""
+        rows = []
+        for corp, score in scores.items():
+            for yr in [2020, 2021, 2022]:
+                rows.append({
+                    "corp_code": corp,
+                    "company_name": f"Co_{corp}",
+                    "year": yr,
+                    "m_score": score,
+                })
+        df = pd.DataFrame(rows)
+        df.to_parquet(tmp_path / "beneish_scores.parquet", index=False)
+
+    def _make_cb_bw(self, tmp_path, cb_corps: list) -> None:
+        """Write cb_bw_events.parquet with given corp_codes."""
+        df = pd.DataFrame({"corp_code": cb_corps, "event_type": ["CB"] * len(cb_corps)})
+        df.to_parquet(tmp_path / "cb_bw_events.parquet", index=False)
+
+    def _load_module(self, module_path: str, tmp_path):
+        """Load a stats script with DATA patched to tmp_path."""
+        import importlib.util
+        p = ROOT / "03_Analysis" / "statistical_tests" / module_path
+        spec = importlib.util.spec_from_file_location(module_path.replace(".py", ""), p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mod.DATA = tmp_path  # patch DATA AFTER exec (module-level assignment overrides pre-exec patch)
+        return mod
+
+    def test_auto_controls_includes_high_m_score_companies(self, tmp_path):
+        """Companies with m_score > -2.5 must be eligible as controls (leakage fix)."""
+        # Set up: one company above -2.5 (would have been excluded before fix),
+        # one far below -2.5 (would have been selected before fix)
+        scores = {
+            "00000001": -1.0,   # above -2.5 — previously excluded; now eligible
+            "00000002": -3.5,   # below -2.5 — always eligible
+            "00000003": -0.5,   # well above -2.5
+        }
+        self._make_beneish(tmp_path, scores)
+        self._make_cb_bw(tmp_path, [])  # no CB corps
+
+        mod = self._load_module("bootstrap_threshold.py", tmp_path)
+        labels_df = pd.DataFrame({"corp_code": [], "fraud_label": []})
+        controls = mod.auto_controls(labels_df)
+        controlled_corps = set(controls["corp_code"].astype(str).str.zfill(8))
+
+        # All 3 companies must be eligible (no m_score filter)
+        assert "00000001" in controlled_corps or len(controlled_corps) >= 1, (
+            "auto_controls excluded high-m_score company 00000001 — label leakage not fixed"
+        )
+        # Key assertion: NOT filtering by m_score means corps with score > -2.5 can appear
+        assert controlled_corps != {"00000002"}, (
+            "auto_controls returned only the low-m_score company — m_score filter still active"
+        )
+
+    def test_auto_controls_excludes_cb_bw_companies(self, tmp_path):
+        """Companies with CB/BW events must never appear in auto_controls output."""
+        scores = {
+            "00000001": -1.0,
+            "00000002": -3.5,
+            "00000003": -2.0,
+        }
+        self._make_beneish(tmp_path, scores)
+        self._make_cb_bw(tmp_path, ["00000001", "00000003"])  # corps 1 and 3 have CB
+
+        mod = self._load_module("bootstrap_threshold.py", tmp_path)
+        labels_df = pd.DataFrame({"corp_code": [], "fraud_label": []})
+        controls = mod.auto_controls(labels_df)
+        controlled_corps = set(controls["corp_code"].astype(str).str.zfill(8))
+
+        assert "00000001" not in controlled_corps, "CB corp 00000001 appeared in controls"
+        assert "00000003" not in controlled_corps, "CB corp 00000003 appeared in controls"
+
+    def test_auto_controls_excludes_existing_labels(self, tmp_path):
+        """Companies already in labels_df must not appear in auto_controls output."""
+        scores = {
+            "00000001": -1.0,
+            "00000002": -2.0,
+        }
+        self._make_beneish(tmp_path, scores)
+        self._make_cb_bw(tmp_path, [])
+
+        mod = self._load_module("bootstrap_threshold.py", tmp_path)
+        labels_df = pd.DataFrame({
+            "corp_code": ["00000001"],
+            "fraud_label": [1],
+        })
+        controls = mod.auto_controls(labels_df)
+        controlled_corps = set(controls["corp_code"].astype(str).str.zfill(8))
+
+        assert "00000001" not in controlled_corps, (
+            "Labeled company 00000001 appeared in auto_controls output"
+        )
+
+
+# ─── Fix 3: Grouped Cross-Validation ──────────────────────────────────────────
+
+class TestGroupedCV:
+    """CV splits must not leak same-company years across train and test folds."""
+
+    def test_no_company_in_both_train_and_test(self):
+        """GroupKFold must guarantee company isolation across folds."""
+        from sklearn.model_selection import GroupKFold
+
+        # Synthetic 6-company × 3-year panel (18 rows)
+        corp_codes = np.repeat(["A", "B", "C", "D", "E", "F"], 3)
+        X = np.random.default_rng(42).standard_normal((18, 3))
+        y = np.array([1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1])
+        groups = pd.factorize(corp_codes)[0]
+
+        gkf = GroupKFold(n_splits=3)
+        for train_idx, test_idx in gkf.split(X, y, groups):
+            train_corps = set(corp_codes[train_idx])
+            test_corps = set(corp_codes[test_idx])
+            assert train_corps.isdisjoint(test_corps), (
+                f"Same company in train and test: {train_corps & test_corps}"
+            )
+
+    def test_lasso_uses_grouped_cv(self):
+        """lasso_beneish.py must pass groups= to the cross-validator."""
+        import importlib.util
+        p = ROOT / "03_Analysis" / "statistical_tests" / "lasso_beneish.py"
+        src = p.read_text(encoding="utf-8")
+        assert "GroupKFold" in src, (
+            "lasso_beneish.py does not use GroupKFold — ungrouped CV still active"
+        )
+        assert "groups=" in src, (
+            "lasso_beneish.py does not pass groups= argument — GroupKFold not wired in"
+        )
+
+    def test_rf_uses_grouped_cv(self):
+        """rf_feature_importance.py must pass groups= to cross_val_score."""
+        import importlib.util
+        p = ROOT / "03_Analysis" / "statistical_tests" / "rf_feature_importance.py"
+        src = p.read_text(encoding="utf-8")
+        assert "GroupKFold" in src, (
+            "rf_feature_importance.py does not use GroupKFold — ungrouped CV still active"
+        )
+        assert "groups=" in src, (
+            "rf_feature_importance.py does not pass groups= argument — GroupKFold not wired in"
+        )

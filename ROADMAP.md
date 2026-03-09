@@ -120,6 +120,19 @@
 |---|---|---|
 | S6 | Run `extract_seibro_repricing.py` → re-run `permutation_repricing_peak.py` + `survival_repricing.py` | SEIBRO API key activation only |
 
+## Statistical Layer Methodological Fixes — Session 64
+
+Three methodological problems in the supervised statistical layer fixed (session 64, Mar 9 2026).
+Findings remain directional until scripts are re-run with new CI values recorded.
+
+| # | Problem | Fix | Scripts |
+|---|---------|-----|---------|
+| 1 | Row-level bootstrap inflated effective n, narrowed CI artificially | `cluster_bootstrap_sample()` helper — resamples at company level | `bootstrap_threshold.py` |
+| 2 | `auto_controls()` used `m_score < -2.5` to pick controls — same metric being calibrated | External criteria only: no CB/BW events, ≥3 scoreable years, neutral sort | all 3 scripts |
+| 3 | Standard k-fold / LOO mixed same-company years across train/test | `GroupKFold(corp_code)` with `groups=` argument | `lasso_beneish.py`, `rf_feature_importance.py` |
+
+8 new invariant tests added (261 total). Re-run scripts to update calibration values in MEMORY.md.
+
 ## Output Quality Issues — Session 62 Review
 
 Identified by `/review-pipeline` on 2026-03-08. Address before next statistical test run.
