@@ -3624,3 +3624,113 @@ class TestEPVCheck:
         mod = self._load_module()
         result = mod.events_per_variable(17, 0)
         assert result == 0.0
+
+
+# ─── Fix 7: RF EPV Check ──────────────────────────────────────────────────────
+
+class TestRFEPVCheck:
+    """rf_events_per_variable() must correctly compute EPV for the dynamic RF feature set."""
+
+    def _load_module(self):
+        from importlib.util import spec_from_file_location, module_from_spec
+        p = ROOT / "03_Analysis" / "statistical_tests" / "rf_feature_importance.py"
+        spec = spec_from_file_location("rf_feature_importance", p)
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_epv_formula(self):
+        """EPV = n_fraud / n_features_used."""
+        mod = self._load_module()
+        assert mod.rf_events_per_variable(17, 15) == pytest.approx(17 / 15)
+        assert mod.rf_events_per_variable(80, 8) == pytest.approx(10.0)
+
+    def test_epv_below_threshold_for_kosdaq(self):
+        """With realistic KOSDAQ values (17 fraud=1, ~15 features), EPV is below 10."""
+        mod = self._load_module()
+        assert mod.rf_events_per_variable(17, 15) < 10, (
+            "KOSDAQ RF set (17 fraud=1, ~15 features) should be below EPV=10"
+        )
+
+    def test_epv_zero_features_safe(self):
+        """rf_events_per_variable must not divide by zero."""
+        mod = self._load_module()
+        assert mod.rf_events_per_variable(17, 0) == 0.0
+
+    def test_epv_equals_lasso_at_8_features(self):
+        """When n_features_used=8, RF EPV equals the Lasso EPV formula (same formula)."""
+        mod = self._load_module()
+        assert mod.rf_events_per_variable(17, 8) == pytest.approx(17 / 8)
+
+
+# ─── Fix 6: Impurity vs. Permutation Importance Comparison ────────────────────
+
+class TestRFImportanceComparison:
+    """compare_importance_methods() must return a well-formed comparison DataFrame."""
+
+    def _load_module(self):
+        from importlib.util import spec_from_file_location, module_from_spec
+        p = ROOT / "03_Analysis" / "statistical_tests" / "rf_feature_importance.py"
+        spec = spec_from_file_location("rf_feature_importance", p)
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def _synthetic_importances(self, n: int, seed: int) -> tuple:
+        """Return two distinct importance arrays with no ties (Dirichlet-distributed)."""
+        rng = np.random.default_rng(seed)
+        rf_imp = rng.dirichlet(np.ones(n))
+        perm_imp = rng.dirichlet(np.ones(n))
+        return rf_imp, perm_imp
+
+    def test_comparison_columns(self):
+        """DataFrame must contain exactly the 6 expected columns."""
+        mod = self._load_module()
+        rf_imp, perm_imp = self._synthetic_importances(8, 0)
+        features = [f"f{i}" for i in range(8)]
+        df = mod.compare_importance_methods(features, rf_imp, perm_imp)
+        expected = {"feature", "rf_rank", "perm_rank", "rf_importance",
+                    "permutation_importance", "rank_divergence"}
+        assert set(df.columns) == expected, (
+            f"Column mismatch. Got: {set(df.columns)}"
+        )
+
+    def test_rank_range(self):
+        """Ranks must be 1-indexed, cover 1..n with no gaps or duplicates."""
+        mod = self._load_module()
+        rf_imp, perm_imp = self._synthetic_importances(10, 1)
+        features = [f"f{i}" for i in range(10)]
+        df = mod.compare_importance_methods(features, rf_imp, perm_imp)
+        assert df["rf_rank"].min() == 1
+        assert df["rf_rank"].max() == 10
+        assert df["rf_rank"].nunique() == 10
+        assert df["perm_rank"].min() == 1
+        assert df["perm_rank"].max() == 10
+        assert df["perm_rank"].nunique() == 10
+
+    def test_rank_divergence_non_negative(self):
+        """rank_divergence must be >= 0 for every row."""
+        mod = self._load_module()
+        rf_imp, perm_imp = self._synthetic_importances(8, 2)
+        features = [f"f{i}" for i in range(8)]
+        df = mod.compare_importance_methods(features, rf_imp, perm_imp)
+        assert (df["rank_divergence"] >= 0).all()
+
+    def test_identical_rankings_zero_divergence(self):
+        """When both importance arrays are identical, all rank_divergence must be 0."""
+        mod = self._load_module()
+        rng = np.random.default_rng(3)
+        imp = rng.dirichlet(np.ones(8))
+        features = [f"f{i}" for i in range(8)]
+        df = mod.compare_importance_methods(features, imp, imp)
+        assert (df["rank_divergence"] == 0).all(), (
+            f"Expected all zeros, got: {df['rank_divergence'].tolist()}"
+        )
+
+    def test_row_count_equals_feature_count(self):
+        """Output must have exactly len(feature_cols) rows — no drops or duplicates."""
+        mod = self._load_module()
+        rf_imp, perm_imp = self._synthetic_importances(12, 4)
+        features = [f"f{i}" for i in range(12)]
+        df = mod.compare_importance_methods(features, rf_imp, perm_imp)
+        assert len(df) == 12, f"Expected 12 rows, got {len(df)}"

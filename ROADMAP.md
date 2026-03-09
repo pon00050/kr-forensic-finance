@@ -144,6 +144,21 @@ Two Chapter 6 (ISL) outputs added to `lasso_beneish.py` (session 65, Mar 9 2026)
 
 6 new invariant tests added (267 total). `lasso_beneish.py` re-run required to generate `lasso_path.csv` / `lasso_path.png`.
 
+## Chapter 8 Methodological Additions — Session 66
+
+Two Chapter 8 (ISL — Tree-Based Methods) outputs added to `rf_feature_importance.py` (session 66, Mar 9 2026).
+
+| # | Addition | Output | Detail |
+|---|---------|--------|--------|
+| 6 | Impurity vs. permutation importance comparison | `rf_importance_comparison.csv` + `rf_importance_comparison.png` | `compare_importance_methods()` helper; returns DataFrame with rf_rank, perm_rank, rank_divergence; scatter plot (rf_rank vs perm_rank) shows method agreement/disagreement; pure function — takes precomputed arrays |
+| 7 | RF EPV check | EPV printed at startup; `epv` column in `rf_importance.csv` | `rf_events_per_variable()` helper; denominator is dynamic feature count (not fixed 8); WARNING when EPV < 10 (expected: 17/~15 ≈ 1.1) |
+
+9 new invariant tests added (276 total). `rf_feature_importance.py` re-run required to generate `rf_importance_comparison.csv` / `rf_importance_comparison.png`.
+
+Deferred Ch. 8 additions (future session):
+- OOB score as bootstrap-consistent internal estimate (`oob_score=True` in `RandomForestClassifier`)
+- Importance stability across seeds (Spearman rank correlation across N `random_state` values)
+
 ## Output Quality Issues — Session 62 Review
 
 Identified by `/review-pipeline` on 2026-03-08. Address before next statistical test run.
