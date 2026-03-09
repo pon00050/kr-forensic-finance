@@ -360,7 +360,7 @@ Eight Korean public datasets identified as high-value for pipeline enrichment. S
 | KONEPS government procurement | Revenue quality, political connection | ID bridge (사업자등록번호) |
 | Court insolvency filings | Model validation (ex-post) | None |
 | KoTaP tax avoidance panel | Earnings management enrichment | Academic access |
-| Korea Customs trade data | Fake export revenue detection | ID bridge |
+| Korea Customs trade data | Fake export revenue detection | **Commercial contract required** — public APIs aggregate only; no company-level data |
 | KRED macro panel | Cyclicality research | None |
 | KOSIS regional statistics | Spatial analysis (prerequisite) | Geocoding |
 | KOFIA bond data | CB/BW complement | None |
@@ -391,7 +391,15 @@ For all KOSDAQ companies with a BRN bridge (extractable from DART company.json),
 
 **Value:** Enables fake government revenue detection. A company reporting rapidly growing government revenue that does not appear in KONEPS records is a high-priority anomaly. Requires BRN extraction (one field from DART) + KONEPS API integration.
 
-**Blocking dependency:** BRN extraction from DART company.json (Phase 5A prerequisite, zero marginal cost). KONEPS API feasibility confirmed separately.
+**Feasibility: CONFIRMED (session 72 research).** Four OpenAPI datasets on data.go.kr, all from 조달청:
+- Dataset 15129466 (사용자정보서비스): Supplier registry — BRN (`사업자등록번호`) is first-class query field
+- Dataset 15129427 (계약정보서비스): Contract records
+- Dataset 15129397 (낙찰정보서비스): Bid results
+- Dataset 15129394 (입찰공고정보서비스): Bid announcements
+
+**Blocking dependency:** BRN extraction from DART company.json (zero marginal cost — `bizr_no` field already returned by existing API calls). Verify whether contract/bid endpoints accept BRN as input filter before building extractor.
+
+**Note on customs data:** Korea Customs APIs (data.go.kr) return aggregate statistics only — not company-level records. Company-level trade data requires a commercial contract with the Korea Trade Statistics Promotion Institute. Customs integration is deferred indefinitely.
 
 ### 5B — Spatial Analysis Layer
 
