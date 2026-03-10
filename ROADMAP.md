@@ -229,6 +229,28 @@ reducing time-to-signal from weeks to hours. Full specification in internal docu
 | P6 | Alert schema + SQLite operational state | Planned (deferred until M1 needs persistent state) |
 | P7 | Label candidates schema for automated staging | Planned |
 
+### MCP Server — Complete (Session 80, Mar 11 2026)
+
+10-tool MCP server exposing all pipeline data to AI clients (Claude Code, Claude Desktop, any MCP-compatible agent).
+Implemented as an additive layer on the existing FastAPI app — mounts at `/mcp/`, same process, same port.
+
+| Tool | Data source | Description |
+|---|---|---|
+| `lookup_corp_code` | `corp_ticker_map.parquet` | Name/ticker → corp_code (always first) |
+| `get_company_summary` | all parquets + CSVs | All signals aggregated for one company |
+| `get_beneish_scores` | `beneish_scores.parquet` | M-Score history with 8 components |
+| `get_cb_bw_events` | `cb_bw_summary.csv` | CB/BW events with flags |
+| `get_price_volume` | `price_volume.parquet` | OHLCV with pagination |
+| `get_officer_holdings` | `officer_holdings.parquet` | DART holding changes |
+| `get_timing_anomalies` | `timing_anomalies.csv` | Disclosure timing anomalies |
+| `get_major_holders` | `major_holders.parquet` | 5%+ block-holding filings |
+| `get_officer_network` | `centrality_report.csv` | Cross-company officer centrality |
+| `search_flagged_companies` | `beneish_scores.parquet` | Ranked anomaly screen with pagination |
+
+**Files added:** `src/mcp_utils.py`, `src/mcp_server.py`, `.mcp.json`, `tests/test_mcp_server.py`
+**Files modified:** `app.py` (3-line MCP mount), `pyproject.toml` (`fastmcp>=3.1.0`, `pytest-asyncio>=0.23.0`)
+**Tests:** 301 pass. Connect via: `claude mcp add --transport http kr-financial-statements http://localhost:8000/mcp/`
+
 ### Phase 3 engineering prerequisites (before Phase 4 website)
 
 - **FastAPI readiness refactoring — Complete (Session 43).** `src/data_access.py` (reusable loaders),

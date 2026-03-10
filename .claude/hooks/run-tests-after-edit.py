@@ -18,7 +18,7 @@ if "test_" in file_path or file_path.endswith("_test.py"):
     sys.exit(0)
 
 result = subprocess.run(
-    ["python", "-m", "pytest", "tests/", "-x", "-q"],
+    ["uv", "run", "python", "-m", "pytest", "tests/", "-x", "-q"],
     capture_output=True,
     text=True,
     timeout=120,

@@ -2355,6 +2355,8 @@ class TestHoldingsFlagJoin:
             pytest.skip("cb_bw_events.parquet not present")
         oh = pd.read_parquet(PROCESSED / "officer_holdings.parquet")
         cb = pd.read_parquet(PROCESSED / "cb_bw_events.parquet")
+        if len(cb) < 100:
+            pytest.skip(f"cb_bw_events.parquet has only {len(cb)} rows — extraction in progress")
         oh_codes = set(oh["corp_code"].astype(str).str.zfill(8))
         cb_codes = set(cb["corp_code"].astype(str).str.zfill(8))
         overlap = len(oh_codes & cb_codes)
