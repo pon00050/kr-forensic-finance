@@ -1175,10 +1175,22 @@ class TestCbBwSchema:
 
     # cb_bw_events
     def test_cb_bw_required_columns(self, cb_bw):
-        required = ["corp_code", "issue_date", "bond_type", "exercise_price",
-                    "repricing_history", "exercise_events"]
+        required = [
+            "corp_code", "issue_date", "bond_type", "exercise_price",
+            "repricing_history", "exercise_events",
+            "issue_amount", "maturity_date", "refixing_floor",
+            "board_date", "warrant_separable",
+        ]
         missing = [c for c in required if c not in cb_bw.columns]
         assert not missing, f"cb_bw_events missing columns: {missing}"
+
+    def test_cb_bw_new_numeric_columns_dtype(self, cb_bw):
+        """issue_amount and refixing_floor must be float or null — never string."""
+        for col in ["issue_amount", "refixing_floor"]:
+            non_null = cb_bw[col].dropna()
+            if not non_null.empty:
+                assert pd.api.types.is_float_dtype(non_null), \
+                    f"{col} has non-float dtype: {non_null.dtype}"
 
     def test_cb_bw_bond_type_values(self, cb_bw):
         actual = set(cb_bw["bond_type"].dropna().unique())
@@ -3940,3 +3952,40 @@ class TestBonferroniCompare:
         assert df["bh_reject"].sum() == 0, (
             f"All large p-values should give 0 BH rejections, got {df['bh_reject'].sum()}"
         )
+
+
+# ── _classify_corp() unit tests ───────────────────────────────────────────────
+
+class TestClassifyCorp:
+    """Unit tests for app._classify_corp() routing logic.
+
+    Tests use monkeypatch to set module-level frozensets directly — no server
+    startup or HTTP requests required.
+    """
+
+    def test_classify_corp_flagged_in_approved(self, monkeypatch):
+        """Corp in both _approved_free and _flagged_corps → returns 'flagged'."""
+        import app as _app
+        monkeypatch.setattr(_app, "_approved_free", frozenset(["00550082"]))
+        monkeypatch.setattr(_app, "_approved_cache_ts", float("inf"))  # suppress TTL refresh
+        monkeypatch.setattr(_app, "_flagged_corps", frozenset(["00550082"]))
+        assert _app._classify_corp("00550082") == "flagged"
+
+    def test_classify_corp_clean_in_approved(self, monkeypatch):
+        """Corp in _approved_free but NOT in _flagged_corps → returns 'clean'."""
+        import app as _app
+        monkeypatch.setattr(_app, "_approved_free", frozenset(["00000001"]))
+        monkeypatch.setattr(_app, "_approved_cache_ts", float("inf"))  # suppress TTL refresh
+        monkeypatch.setattr(_app, "_flagged_corps", frozenset(["00550082"]))
+        assert _app._classify_corp("00000001") == "clean"
+
+    def test_classify_corp_not_in_approved_raises_404(self, monkeypatch):
+        """Corp NOT in _approved_free (when approval set is active) → raises 404."""
+        from fastapi import HTTPException
+        import app as _app
+        monkeypatch.setattr(_app, "_approved_free", frozenset(["00550082"]))
+        monkeypatch.setattr(_app, "_approved_cache_ts", float("inf"))  # suppress TTL refresh
+        monkeypatch.setattr(_app, "_flagged_corps", frozenset(["00550082"]))
+        with pytest.raises(HTTPException) as exc_info:
+            _app._classify_corp("99999999")
+        assert exc_info.value.status_code == 404

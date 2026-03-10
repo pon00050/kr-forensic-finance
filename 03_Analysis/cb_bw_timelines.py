@@ -136,7 +136,9 @@ def _display(mo, df_results, px):
 
     display_cols = [
         "corp_code", "ticker", "issue_date", "bond_type", "anomaly_score",
-        "flags", "volume_ratio", "exercise_price", "dart_link",
+        "flags", "volume_ratio", "exercise_price",
+        "issue_amount", "refixing_floor",
+        "dart_link",
     ]
     available = [c for c in display_cols if c in df_results.columns]
 

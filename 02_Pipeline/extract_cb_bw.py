@@ -10,7 +10,9 @@ status "013" means no history for that company — skip, not an error.
 Output:
   01_Data/processed/cb_bw_events.parquet
   Columns: corp_code, issue_date, bond_type, exercise_price,
-           repricing_history (JSON str), exercise_events (JSON str)
+           repricing_history (JSON str), exercise_events (JSON str),
+           issue_amount, maturity_date, refixing_floor, board_date,
+           warrant_separable
 
 Usage:
   python 02_Pipeline/extract_cb_bw.py
@@ -60,6 +62,17 @@ SLEEP_DEFAULT = 0.5
 
 
 
+def _parse_dart_date(raw) -> str | None:
+    """Parse a DART date string (YYYYMMDD or 'YYYY년 MM월 DD일') to ISO YYYY-MM-DD."""
+    if not raw:
+        return None
+    raw = str(raw).strip()
+    if len(raw) == 8 and raw.isdigit():
+        return f"{raw[:4]}-{raw[4:6]}-{raw[6:]}"
+    dt = pd.to_datetime(raw, errors="coerce")
+    return str(dt.date()) if not pd.isna(dt) else None
+
+
 def _parse_dart_response(
     data: dict, corp_code: str, bond_type: str
 ) -> list[dict]:
@@ -97,6 +110,23 @@ def _parse_dart_response(
         except (ValueError, TypeError):
             exercise_price = None
 
+        # Issue amount (권면총액) — bd_fta: "10,000,000,000"
+        raw_amount = item.get("bd_fta") or None
+        issue_amount = float(str(raw_amount).replace(",", "")) if raw_amount else None
+
+        # Maturity date (사채만기일) — bd_mtd
+        maturity_date = _parse_dart_date(item.get("bd_mtd"))
+
+        # Refixing floor (최저조정가액) — act_mktprcfl_cvprc_lwtrsprc
+        raw_floor = item.get("act_mktprcfl_cvprc_lwtrsprc") or None
+        refixing_floor = float(str(raw_floor).replace(",", "")) if raw_floor else None
+
+        # Board approval date (이사회결의일) — bddd
+        board_date = _parse_dart_date(item.get("bddd"))
+
+        # Warrant separable (사채/인수권 분리여부) — bdwt_div_atn; BW only
+        warrant_separable = item.get("bdwt_div_atn") or None
+
         rows.append({
             "corp_code": corp_code,
             "issue_date": issue_date,
@@ -104,6 +134,11 @@ def _parse_dart_response(
             "exercise_price": exercise_price,
             "repricing_history": json.dumps([]),
             "exercise_events": json.dumps([]),
+            "issue_amount": issue_amount,
+            "maturity_date": maturity_date,
+            "refixing_floor": refixing_floor,
+            "board_date": board_date,
+            "warrant_separable": warrant_separable,
         })
 
     return rows
@@ -270,6 +305,8 @@ def fetch_cb_bw_events(
     df = pd.DataFrame(all_rows) if all_rows else pd.DataFrame(columns=[
         "corp_code", "issue_date", "bond_type", "exercise_price",
         "repricing_history", "exercise_events",
+        "issue_amount", "maturity_date", "refixing_floor",
+        "board_date", "warrant_separable",
     ])
 
     before = len(df)

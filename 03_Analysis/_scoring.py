@@ -60,6 +60,8 @@ class CbBwResult(TypedDict):
     peak_date:              str | None
     peak_before_issue:      bool
     dart_link:              str
+    issue_amount:           float | None
+    refixing_floor:         float | None
 
 
 def score_events(
@@ -89,6 +91,8 @@ def score_events(
         issue_date_raw = event.get("issue_date")
         bond_type = event.get("bond_type", "CB")
         exercise_price = event.get("exercise_price")
+        issue_amount = event.get("issue_amount")
+        refixing_floor = event.get("refixing_floor")
 
         if not issue_date_raw:
             continue
@@ -221,6 +225,8 @@ def score_events(
             "peak_date": peak_date_val,
             "peak_before_issue": peak_before_issue,
             "dart_link": f"https://dart.fss.or.kr/corp/searchAjax.do?textCrpCik={corp_code}",
+            "issue_amount": issue_amount,
+            "refixing_floor": refixing_floor,
         }
         results.append(row)
 

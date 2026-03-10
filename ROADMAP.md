@@ -13,7 +13,7 @@
 
 | Table | Description |
 |---|---|
-| `cb_bw_events.parquet` | CB/BW issuance events from DART DS005 |
+| `cb_bw_events.parquet` | CB/BW issuance events from DART DS005; 11 cols including issue_amount, maturity_date, refixing_floor, board_date, warrant_separable |
 | `price_volume.parquet` | OHLCV ±60 day windows around events |
 | `corp_ticker_map.parquet` | corp_code ↔ ticker mapping |
 | `officer_holdings.parquet` | Officer holding changes |
@@ -281,7 +281,7 @@ No code execution required from end users — they read, not operate.
 
 | ID | Description | Status |
 |----|-------------|--------|
-| W1 | FastAPI backend + company/alert endpoints | Planned |
+| W1 | FastAPI backend + frontend shell + legal pages + deploy configs | **Implementation complete (Session 79) — public/paid tier routing added — pending go-live** |
 | W2 | Static or server-rendered public website | Planned |
 | W3 | Company pages with signal history and report links | Planned |
 | W4 | Alert feed with severity levels and source links | Planned |
@@ -294,12 +294,31 @@ No code execution required from end users — they read, not operate.
 Goal: credibility signal for institutional discovery, not traffic.
 Success KPI: **1 institutional conversation** (자산운용사 리스크팀, 증권사 리서치팀, or 회계법인 감사팀).
 
-- [ ] Deploy FastAPI to Railway (simplest) / Fly.io / Render / Cloud Run
-- [ ] Landing page: Home / About / Demo / Contact
-- [ ] Demo: company code input → anomaly report output (3 working demo companies minimum)
-- [ ] Lead capture CTA: "Request Institutional Access" or "Contact for Institutional License"
-- [ ] Error handling: no stack traces to public; graceful missing-corp_code page
-- [ ] Uptime: stays up 30+ days without manual intervention
+**Implementation complete (Session 78–79).** Files created/modified:
+- `app.py` — rewritten: CORS, Jinja2, StaticFiles, TTL cache, async routes, lifespan preload, 8 new web routes; Session 79: `_public_corps`, `_classify_corp()`, index SQL filter, `report_clean` branch, demo corp_name fix
+- `static/css/main.css` — extracted from mockup.html
+- `templates/` — base, index, demo, about, contact, report_shell, privacy, terms; Session 79: `report_clean.html` (new)
+- `deploy/Dockerfile`, `deploy/Caddyfile`, `deploy/krff-api.service`
+- `pyproject.toml` — added `jinja2>=3.1.0`, `cachetools>=5.3.0`, `httpx>=0.24.0` (dev); `uv.lock` updated
+
+**Public/paid tier (Session 79):**
+- `PUBLIC_CORPS` env var (`.env`) — comma-separated corp_codes for public allowlist; empty = cold-start mode (all flagged companies accessible)
+- `_classify_corp()` — routes `/report/{corp_code}` to `report_shell.html` (flagged) or `report_clean.html` (clean) or 404 (not in allowlist)
+- User fills in `PUBLIC_CORPS` after curating sample; paid-tier auth middleware is additive over existing `_flagged_corps` universe
+
+**Before go-live checklist (blocking):**
+
+- [ ] **Web3Forms access key** — get from web3forms.com; set as `WEB3FORMS_KEY` env var on server (currently placeholder `YOUR_ACCESS_KEY` in template)
+- [ ] **Operator name** — replace `[OPERATOR_NAME]` in `templates/privacy.html` (개인정보 보호책임자 성명)
+- [ ] **Contact email** — replace `[CONTACT_EMAIL]` in `templates/base.html`, `privacy.html`, `terms.html`, `contact.html`
+- [ ] **Domain name** — replace `krff.example.com` in `deploy/Caddyfile`; update CORS `allow_origins=["*"]` → real domain in `app.py`
+- [ ] **Demo companies B and C** — set `DEMO_CORPS` env var with additional corp_codes once legal review is complete (currently only `00550082` 캔버스엔)
+- [ ] **Hetzner CX33 provisioning** — create server, install Caddy + systemd, copy `deploy/krff-api.service` and `deploy/Caddyfile`, mount parquet volume
+- [ ] **Smoke test** — `curl https://krff.example.com/` returns HTML; `/api/status` returns JSON; `/demo/00550082/report` renders iframe; `/privacy` and `/terms` render
+
+**Non-blocking (post-launch):**
+- [ ] Restrict CORS origin from `["*"]` to real domain
+- [ ] KSD 별도이용허락 (051-519-1420) — required for commercial SEIBRO use; activates Flags 1 & 2
 
 ### W2 — Content Marketing
 
