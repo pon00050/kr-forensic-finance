@@ -282,8 +282,10 @@ def fetch_bondholder_register(
     except ImportError:
         raise ImportError("opendartreader is required: uv add opendartreader")
 
-    out = PROCESSED / "bondholder_register.parquet"
-    if out.exists() and not force and not rebuild and corp_codes_filter is None:
+    out = PROCESSED / ("bondholder_register_preview.parquet" if sample is not None else "bondholder_register.parquet")
+    if sample is not None:
+        log.info("SAMPLE MODE: output → %s (production parquet untouched)", out.name)
+    elif out.exists() and not force and not rebuild and corp_codes_filter is None:
         log.info("bondholder_register.parquet exists, loading cached (use --force or --rebuild to refresh)")
         return pd.read_parquet(out)
 

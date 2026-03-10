@@ -25,6 +25,7 @@ import argparse
 import datetime
 import json
 import logging
+import re
 import sys
 import time
 from pathlib import Path
@@ -67,8 +68,14 @@ def _parse_dart_date(raw) -> str | None:
     if not raw:
         return None
     raw = str(raw).strip()
+    if raw == "-":
+        return None
     if len(raw) == 8 and raw.isdigit():
         return f"{raw[:4]}-{raw[4:6]}-{raw[6:]}"
+    # Korean format: '2023년 05월 14일'
+    m = re.match(r"(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일", raw)
+    if m:
+        return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
     dt = pd.to_datetime(raw, errors="coerce")
     return str(dt.date()) if not pd.isna(dt) else None
 
@@ -112,14 +119,20 @@ def _parse_dart_response(
 
         # Issue amount (권면총액) — bd_fta: "10,000,000,000"
         raw_amount = item.get("bd_fta") or None
-        issue_amount = float(str(raw_amount).replace(",", "")) if raw_amount else None
+        try:
+            issue_amount = float(str(raw_amount).replace(",", "")) if raw_amount and str(raw_amount).strip() != "-" else None
+        except (ValueError, TypeError):
+            issue_amount = None
 
         # Maturity date (사채만기일) — bd_mtd
         maturity_date = _parse_dart_date(item.get("bd_mtd"))
 
         # Refixing floor (최저조정가액) — act_mktprcfl_cvprc_lwtrsprc
         raw_floor = item.get("act_mktprcfl_cvprc_lwtrsprc") or None
-        refixing_floor = float(str(raw_floor).replace(",", "")) if raw_floor else None
+        try:
+            refixing_floor = float(str(raw_floor).replace(",", "")) if raw_floor and str(raw_floor).strip() != "-" else None
+        except (ValueError, TypeError):
+            refixing_floor = None
 
         # Board approval date (이사회결의일) — bddd
         board_date = _parse_dart_date(item.get("bddd"))
@@ -210,8 +223,10 @@ def fetch_cb_bw_events(
 
     Writes 01_Data/processed/cb_bw_events.parquet.
     """
-    out = PROCESSED / "cb_bw_events.parquet"
-    if out.exists() and not force:
+    out = PROCESSED / ("cb_bw_events_preview.parquet" if sample is not None else "cb_bw_events.parquet")
+    if sample is not None:
+        log.info("SAMPLE MODE: output → %s (production parquet untouched)", out.name)
+    elif out.exists() and not force:
         log.info("cb_bw_events.parquet exists, loading cached (use --force to refresh)")
         return pd.read_parquet(out)
 

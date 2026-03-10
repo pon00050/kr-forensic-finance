@@ -579,7 +579,9 @@ def fetch_ksic(
     if sample is not None:
         companies = companies.head(sample)
         log.info("--sample %d: limiting KSIC fetch to %d companies", sample, len(companies))
-    out = RAW_SECTOR / "ksic.parquet"
+    out = RAW_SECTOR / ("ksic_preview.parquet" if sample is not None else "ksic.parquet")
+    if sample is not None:
+        log.info("SAMPLE MODE: output → %s (production parquet untouched)", out.name)
     RAW_SECTOR.mkdir(parents=True, exist_ok=True)
 
     # Load existing to resume without re-fetching
@@ -703,7 +705,10 @@ def run(
                 "no_data": len(summary["no_data"]),
                 "errors": len(summary["errors"]),
             }
-            summary_path = RAW / "run_summary.json"
+            summary_fname = "run_summary_preview.json" if sample is not None else "run_summary.json"
+            summary_path = RAW / summary_fname
+            if sample is not None:
+                log.info("SAMPLE MODE: summary → %s (production run_summary.json untouched)", summary_fname)
             with open(summary_path, "w", encoding="utf-8") as f:
                 json.dump(summary, f, ensure_ascii=False, indent=2, default=str)
             log.info("Run summary: %s", summary["counts"])
@@ -731,7 +736,10 @@ def run(
             "no_data": len(summary["no_data"]),
             "errors": len(summary["errors"]),
         }
-        summary_path = RAW / "run_summary.json"
+        summary_fname = "run_summary_preview.json" if sample is not None else "run_summary.json"
+        summary_path = RAW / summary_fname
+        if sample is not None:
+            log.info("SAMPLE MODE: summary → %s (production run_summary.json untouched)", summary_fname)
         with open(summary_path, "w", encoding="utf-8") as f:
             json.dump(summary, f, ensure_ascii=False, indent=2, default=str)
         log.info("Financials summary: %s", summary["counts"])

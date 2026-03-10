@@ -160,8 +160,10 @@ def fetch_major_holders(
     Fetch 대량보유상황보고서 for all corp_codes in cb_bw_events.parquet.
     Writes 01_Data/processed/major_holders.parquet.
     """
-    out = PROCESSED / "major_holders.parquet"
-    if out.exists() and not force and not rebuild:
+    out = PROCESSED / ("major_holders_preview.parquet" if sample is not None else "major_holders.parquet")
+    if sample is not None:
+        log.info("SAMPLE MODE: output → %s (production parquet untouched)", out.name)
+    elif out.exists() and not force and not rebuild:
         log.info("major_holders.parquet exists, loading cached (use --force or --rebuild to refresh)")
         return pd.read_parquet(out)
 

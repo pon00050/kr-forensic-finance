@@ -260,8 +260,10 @@ def fetch_revenue_schedule(
     except ImportError:
         raise ImportError("opendartreader is required: uv add opendartreader")
 
-    out = PROCESSED / "revenue_schedule.parquet"
-    if out.exists() and not force and not rebuild and corp_codes_filter is None:
+    out = PROCESSED / ("revenue_schedule_preview.parquet" if sample is not None else "revenue_schedule.parquet")
+    if sample is not None:
+        log.info("SAMPLE MODE: output → %s (production parquet untouched)", out.name)
+    elif out.exists() and not force and not rebuild and corp_codes_filter is None:
         log.info("revenue_schedule.parquet exists, loading cached (use --force or --rebuild to refresh)")
         return pd.read_parquet(out)
 
