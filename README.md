@@ -183,6 +183,17 @@ krff serve   # must be running first
 # Or manually: claude mcp add --transport http kr-financial-statements http://localhost:8000/mcp/
 ```
 
+Once connected, ask questions in plain language — Claude calls the right tools, joins
+results across datasets, and returns a synthesized answer. No SQL, no Excel, no manual
+cross-referencing of DART filings.
+
+See **[MCP_EXAMPLES.md](MCP_EXAMPLES.md)** for worked examples including multi-signal
+cross-table screens, price history investigation, and a full query reference.
+
+See **[MCP_DAY_IN_LIFE.md](MCP_DAY_IN_LIFE.md)** for a side-by-side comparison of the
+traditional Excel/DART workflow vs. MCP for a realistic analyst screening task (~2.5 hours
+→ ~4 minutes).
+
 ### Folder Structure
 
 ```
