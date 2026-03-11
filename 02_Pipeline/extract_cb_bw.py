@@ -42,8 +42,6 @@ from _pipeline_helpers import (
 
 load_dotenv()
 
-sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf-8', closefd=False)
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -365,5 +363,19 @@ def main():
     )
 
 
+def _configure_stdout() -> None:
+    """Windows UTF-8 fix — call only when running as main script, not when imported.
+
+    Avoids breaking pytest's capsys capture when this module is imported in tests.
+    """
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+            sys.stderr.reconfigure(encoding="utf-8")
+        except AttributeError:
+            pass
+
+
 if __name__ == "__main__":
+    _configure_stdout()
     main()

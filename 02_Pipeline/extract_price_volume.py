@@ -38,8 +38,6 @@ from pathlib import Path
 
 import pandas as pd
 
-sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf-8', closefd=False)
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -51,7 +49,7 @@ ROOT = Path(__file__).parent.parent
 RAW = ROOT / "01_Data" / "raw"
 PROCESSED = ROOT / "01_Data" / "processed"
 
-WINDOW_DAYS = 60
+WINDOW_TRADING_DAYS = 60  # trading days each side — see KI-043
 SLEEP_DEFAULT = 0.3
 
 
@@ -206,8 +204,9 @@ def fetch_price_volume(
             log.debug("No ticker for corp_code=%s, skipping", corp_code)
             continue
 
-        start_dt = (issue_dt - datetime.timedelta(days=WINDOW_DAYS)).strftime("%Y%m%d")
-        end_dt   = (issue_dt + datetime.timedelta(days=WINDOW_DAYS)).strftime("%Y%m%d")
+        from src.trading_calendar import trading_day_offset
+        start_dt = trading_day_offset(issue_dt, -WINDOW_TRADING_DAYS).strftime("%Y%m%d")
+        end_dt   = trading_day_offset(issue_dt, +WINDOW_TRADING_DAYS).strftime("%Y%m%d")
 
         try:
             df_ohlcv = fetch_fn(ticker, start_dt, end_dt)
@@ -258,5 +257,19 @@ def main():
     )
 
 
+def _configure_stdout() -> None:
+    """Windows UTF-8 fix — call only when running as main script, not when imported.
+
+    Avoids breaking pytest's capsys capture when this module is imported in tests.
+    """
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+            sys.stderr.reconfigure(encoding="utf-8")
+        except AttributeError:
+            pass
+
+
 if __name__ == "__main__":
+    _configure_stdout()
     main()

@@ -75,7 +75,7 @@ def run(
         raise typer.BadParameter(f"top_n must be >= 1, got {top_n}", param_hint="'--top-n'")
     if wics_date is not None and (len(wics_date) != 8 or not wics_date.isdigit()):
         raise typer.BadParameter(f"wics_date must be 8 digits (YYYYMMDD), got {wics_date!r}", param_hint="'--wics-date'")
-    _valid_backends = ("pykrx", "fdr", "yfinance")
+    from src.constants import VALID_OHLCV_BACKENDS as _valid_backends
     if backend not in _valid_backends:
         raise typer.BadParameter(f"backend must be one of {_valid_backends}, got {backend!r}", param_hint="'--backend'")
 
@@ -312,7 +312,7 @@ def refresh(
     --sample is for API quota smoke-testing only; production scoring requires full output.
     """
     _require_positive_sample(sample)
-    _valid_backends = ("pykrx", "fdr", "yfinance")
+    from src.constants import VALID_OHLCV_BACKENDS as _valid_backends
     if backend not in _valid_backends:
         raise typer.BadParameter(f"backend must be one of {_valid_backends}, got {backend!r}", param_hint="'--backend'")
 
@@ -395,7 +395,7 @@ def serve(
     except ImportError:
         typer.echo("uvicorn not installed. Run: uv sync", err=True)
         raise typer.Exit(code=1)
-    uvicorn.run("app:app", host=host, port=port, reload=reload)
+    uvicorn.run("app:app", host=host, port=port, reload=reload, lifespan="on")
 
 
 @app.command()
@@ -603,10 +603,9 @@ def batch_report(
 
     import pandas as pd
 
+    from src.constants import BENEISH_THRESHOLD
     from src.report import generate_report
     from src.review import list_queue, queue_add
-
-    BENEISH_THRESHOLD = -1.78
 
     if not _DEFAULT_PARQUET.exists():
         typer.echo(f"Error: {_DEFAULT_PARQUET} not found. Run 'krff run' first.", err=True)
@@ -655,7 +654,8 @@ def batch_report(
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     results: list[str] = []
-    lock = __import__("threading").Lock()
+    import threading
+    lock = threading.Lock()
 
     def _generate_one(i_code: tuple[int, str]) -> None:
         i, corp_code = i_code

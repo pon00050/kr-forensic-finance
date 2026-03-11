@@ -2371,16 +2371,16 @@ class TestConstantsConsolidation:
     def test_cb_bw_scoring_constants_exist(self):
         from src.constants import (
             REPRICING_DISCOUNT_RATIO,
-            EXERCISE_PEAK_WINDOW_DAYS,
+            EXERCISE_PEAK_WINDOW_CALENDAR_DAYS,
             VOLUME_SURGE_RATIO,
             HOLDINGS_DECREASE_RATIO,
-            PRICE_WINDOW_DAYS,
+            PRICE_WINDOW_TRADING_DAYS,
         )
         assert isinstance(REPRICING_DISCOUNT_RATIO, float)
-        assert isinstance(EXERCISE_PEAK_WINDOW_DAYS, int)
+        assert isinstance(EXERCISE_PEAK_WINDOW_CALENDAR_DAYS, int)
         assert isinstance(VOLUME_SURGE_RATIO, float)
         assert isinstance(HOLDINGS_DECREASE_RATIO, float)
-        assert isinstance(PRICE_WINDOW_DAYS, int)
+        assert isinstance(PRICE_WINDOW_TRADING_DAYS, int)
 
     def test_timing_constants_exist(self):
         from src.constants import (
@@ -3991,3 +3991,211 @@ class TestClassifyCorp:
         with pytest.raises(HTTPException) as exc_info:
             _app._classify_corp("99999999")
         assert exc_info.value.status_code == 404
+
+
+# ─── Category 26: Korean trading calendar (KI-043) ────────────────────────────
+
+class TestKoreanTradingCalendar:
+    """Guard tests for src/trading_calendar.py (KI-043 fix).
+
+    All date expectations verified against exchange_calendars XKRX v4.13.2.
+    """
+
+    def test_is_trading_day_known_session(self):
+        """2021-01-08 (Friday, no holiday) is a KRX trading session."""
+        from src.trading_calendar import is_trading_day
+        assert is_trading_day("2021-01-08") is True
+
+    def test_is_trading_day_new_year(self):
+        """2021-01-01 (신정) is NOT a trading session."""
+        from src.trading_calendar import is_trading_day
+        assert is_trading_day("2021-01-01") is False
+
+    def test_is_trading_day_seollal(self):
+        """2021-02-12 (설날) is NOT a trading session."""
+        from src.trading_calendar import is_trading_day
+        assert is_trading_day("2021-02-12") is False
+
+    def test_is_trading_day_seollal_eve(self):
+        """2021-02-11 (설날 연휴 시작) is NOT a trading session."""
+        from src.trading_calendar import is_trading_day
+        assert is_trading_day("2021-02-11") is False
+
+    def test_is_trading_day_chuseok(self):
+        """2020-10-01 (추석) is NOT a trading session."""
+        from src.trading_calendar import is_trading_day
+        assert is_trading_day("2020-10-01") is False
+
+    def test_trading_day_offset_backward(self):
+        """60 trading days before 2021-02-15 should be 2020-11-16."""
+        from src.trading_calendar import trading_day_offset
+        import pandas as pd
+        result = trading_day_offset("2021-02-15", -60)
+        assert result == pd.Timestamp("2020-11-16")
+
+    def test_trading_day_offset_forward(self):
+        """60 trading days after 2021-02-15 should be 2021-05-12."""
+        from src.trading_calendar import trading_day_offset
+        import pandas as pd
+        result = trading_day_offset("2021-02-15", 60)
+        assert result == pd.Timestamp("2021-05-12")
+
+    def test_trading_day_window_gives_121_sessions(self):
+        """True ±60 trading-day window around 2021-02-15 must contain 121 sessions."""
+        from src.trading_calendar import trading_day_offset, trading_days_in_range
+        start = trading_day_offset("2021-02-15", -60)
+        end = trading_day_offset("2021-02-15", 60)
+        sessions = trading_days_in_range(start, end)
+        assert len(sessions) == 121
+
+    def test_old_calendar_window_was_only_38_sessions(self):
+        """Documents the pre-fix bug: ±60 calendar days gave only 38 sessions per side.
+
+        This test is intentionally asymmetric — it asserts the OLD behaviour was wrong,
+        so that future readers understand what was fixed.
+        """
+        from src.trading_calendar import trading_days_in_range
+        import pandas as pd
+        # Old extraction: issue_dt - timedelta(60) to issue_dt
+        old_start = pd.Timestamp("2020-12-17")   # 2021-02-15 - 60 calendar days
+        issue_date = pd.Timestamp("2021-02-15")
+        sessions_one_side = trading_days_in_range(old_start, issue_date)
+        # The old window had only 38 sessions per side, not 60
+        assert len(sessions_one_side) == 38
+
+    def test_trading_days_in_range_basic(self):
+        """trading_days_in_range returns a non-empty DatetimeIndex for a valid range."""
+        from src.trading_calendar import trading_days_in_range
+        sessions = trading_days_in_range("2021-01-04", "2021-01-08")
+        assert len(sessions) == 5  # Mon-Fri, no holidays that week
+
+
+# ─── Category 33: Code correctness fixes (session 84) ─────────────────────────
+
+
+class TestScoringCorrectnessFixes:
+    """Guard tests for session-84 correctness fixes.
+
+    Test 1: score_events all-NaN close must not crash (Fix 1A).
+    Test 2: BENEISH_THRESHOLD not hardcoded in batch_report (Fix 1C).
+    Test 3: score_disclosures output contract regression guard (Fix 2B).
+    """
+
+    @classmethod
+    def _add_analysis_path(cls):
+        analysis_dir = str(ROOT / "03_Analysis")
+        if analysis_dir not in sys.path:
+            sys.path.insert(0, analysis_dir)
+
+    # ── Test 1: idxmax() crash on all-NaN close (Fix 1A) ─────────────────────
+
+    def test_score_events_all_nan_close_does_not_crash(self):
+        """Fix 1A: score_events must not crash when all close prices are NaN.
+
+        pandas <= 1.5: idxmax() returns NaN -> df.loc[NaN, "date"] -> KeyError.
+        pandas >= 2.1: idxmax() raises ValueError directly.
+        Both paths crash without the dropna guard. peak_date must be None.
+        """
+        self._add_analysis_path()
+        from _scoring import score_events
+
+        df_cb = pd.DataFrame([{
+            "corp_code": "00000001",
+            "issue_date": "2021-06-01",
+            "bond_type": "CB",
+            "exercise_price": 5000,
+            "repricing_history": "[]",
+            "exercise_events": "[]",
+        }])
+
+        # All-NaN close — the crash trigger
+        dates = pd.date_range("2020-01-01", periods=150, freq="B")
+        df_pv = pd.DataFrame({
+            "ticker": "A001",
+            "date": dates,
+            "close": np.nan,
+            "volume": 10_000.0,
+        })
+        df_map = pd.DataFrame({"corp_code": ["00000001"], "ticker": ["A001"]})
+        df_oh = pd.DataFrame(columns=["corp_code", "officer_name", "date", "change_shares"])
+
+        # Must not raise any exception
+        result = score_events(df_cb, df_pv, df_oh, df_map)
+
+        assert len(result) == 1, f"Expected 1 result row, got {len(result)}"
+        peak = result.iloc[0]["peak_date"]
+        assert peak is None or (isinstance(peak, float) and np.isnan(peak)), (
+            f"peak_date should be None for all-NaN close window, got {peak!r}"
+        )
+
+    # ── Test 2: BENEISH_THRESHOLD not hardcoded in batch_report (Fix 1C) ──────
+
+    def test_beneish_threshold_not_hardcoded_in_batch_report(self):
+        """Fix 1C: batch_report must not define BENEISH_THRESHOLD as a local variable.
+
+        The hardcoded -1.78 silently diverges if src.constants.BENEISH_THRESHOLD changes.
+        This test fails while the constant is defined locally inside batch_report.
+        """
+        import re
+        import pathlib
+
+        cli_src = (pathlib.Path(__file__).parents[1] / "cli.py").read_text(encoding="utf-8")
+
+        # Extract batch_report body (from def to next @app. decorator or EOF)
+        match = re.search(
+            r"^def batch_report\b.*?(?=^@app\.|\Z)",
+            cli_src,
+            re.DOTALL | re.MULTILINE,
+        )
+        assert match, "batch_report function not found in cli.py"
+        body = match.group(0)
+
+        assert "BENEISH_THRESHOLD = " not in body, (
+            "BENEISH_THRESHOLD is hardcoded inside batch_report — "
+            "import it from src.constants instead to avoid silent threshold drift"
+        )
+
+    # ── Test 3: score_disclosures output contract (regression guard for Fix 2B) ─
+
+    def test_score_disclosures_output_schema_and_flag_logic(self):
+        """Fix 2B: score_disclosures must produce correct schema and flag logic.
+
+        Regression guard for the iterrows->merge vectorization.
+        Verifies required columns present and flag=True exactly when thresholds met.
+        """
+        self._add_analysis_path()
+        from _scoring import score_disclosures
+
+        df_map = pd.DataFrame({"corp_code": ["00000010"], "ticker": ["T010"]})
+        disc_date = pd.Timestamp("2021-06-01")
+
+        df_disc = pd.DataFrame([
+            # Flaggable: is_material=True + big move
+            {"corp_code": "00000010", "trading_date": disc_date, "is_material": True,
+             "disclosure_type": "주요사항보고", "title": "전환사채 발행결정", "dart_link": ""},
+        ])
+        df_pv = pd.DataFrame({
+            "ticker": ["T010"],
+            "date": [disc_date],
+            "price_change_pct": [10.0],
+            "volume_ratio": [3.0],
+        })
+
+        result = score_disclosures(df_disc, df_pv, df_map)
+
+        # Schema check
+        required_cols = {
+            "corp_code", "ticker", "filing_date", "check_date", "timing",
+            "price_change_pct", "volume_ratio", "anomaly_score", "flag", "is_material",
+        }
+        missing = required_cols - set(result.columns)
+        assert not missing, f"Missing columns in score_disclosures output: {missing}"
+
+        # Flag logic: same_day match should produce a flagged row
+        flagged = result[result["flag"]]
+        assert len(flagged) >= 1, (
+            "Expected at least one flagged row for is_material=True + 10% price + 3x volume"
+        )
+        row = flagged.iloc[0]
+        assert abs(row["price_change_pct"]) >= 5.0
+        assert row["volume_ratio"] >= 2.0

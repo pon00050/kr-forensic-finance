@@ -55,9 +55,8 @@ except ImportError:
 # text (e.g. "연결제무제표"). On Windows the default sys.stdout is cp1252, so that
 # print() raises UnicodeEncodeError, which the pipeline's exception handler silently
 # catches and records as no_filing — meaning zero API calls are ever made.
-# Redirecting sys.stdout to utf-8 before the first finstate_all call fixes this.
-sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf-8', closefd=False)
-
+# Fix is applied in _configure_stdout() called only from __main__ (not at import time,
+# which would break pytest capsys capture). cli.py handles the fix for pipeline runs.
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -752,7 +751,23 @@ def run(
 # CLI
 # ---------------------------------------------------------------------------
 
+
+def _configure_stdout() -> None:
+    """Windows UTF-8 fix — call only when running as main script, not when imported.
+
+    Avoids breaking pytest's capsys capture when this module is imported in tests.
+    When invoked via cli.py (krff run), cli.py's top-level reconfigure handles the fix.
+    """
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+            sys.stderr.reconfigure(encoding="utf-8")
+        except AttributeError:
+            pass
+
+
 if __name__ == "__main__":
+    _configure_stdout()
     parser = argparse.ArgumentParser(
         description="Phase 1: Extract DART financials and sector data",
         formatter_class=argparse.RawDescriptionHelpFormatter,

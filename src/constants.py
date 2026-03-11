@@ -12,10 +12,11 @@ FLAG_HOLDINGS_DECREASE = "holdings_decrease"
 
 # CB/BW scoring thresholds
 REPRICING_DISCOUNT_RATIO = 0.95
-EXERCISE_PEAK_WINDOW_DAYS = 5
+EXERCISE_PEAK_WINDOW_CALENDAR_DAYS = 5  # calendar days, intentionally NOT trading days — see Fix 1B
 VOLUME_SURGE_RATIO = 3.0
 HOLDINGS_DECREASE_RATIO = 0.95
-PRICE_WINDOW_DAYS = 60
+PRICE_WINDOW_TRADING_DAYS = 60  # trading days (not calendar days) — see KI-043
+VALID_OHLCV_BACKENDS = ("pykrx", "fdr", "yfinance")
 
 # Timing anomaly thresholds
 TIMING_PRICE_CHANGE_PCT = 5.0
