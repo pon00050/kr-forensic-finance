@@ -342,17 +342,20 @@ async def get_price_volume(
 
     corp_code = corp_code.zfill(8)
     path_str = to_duckdb_path(path)
+    map_path_str = to_duckdb_path(parquet_path("corp_ticker_map"))
 
     def _load() -> pd.DataFrame:
         sql = (
-            "SELECT date, open, high, low, close, volume "
-            "FROM read_parquet(?) "
-            "WHERE LPAD(CAST(corp_code AS VARCHAR), 8, '0') = ? "
-            "  AND CAST(date AS VARCHAR) >= ? "
-            "  AND CAST(date AS VARCHAR) <= ? "
-            "ORDER BY date"
+            "SELECT pv.date, pv.open, pv.high, pv.low, pv.close, pv.volume "
+            "FROM read_parquet(?) pv "
+            "JOIN read_parquet(?) ctm "
+            "  ON CAST(pv.ticker AS VARCHAR) = CAST(ctm.ticker AS VARCHAR) "
+            "WHERE LPAD(CAST(ctm.corp_code AS VARCHAR), 8, '0') = ? "
+            "  AND CAST(pv.date AS VARCHAR) >= ? "
+            "  AND CAST(pv.date AS VARCHAR) <= ? "
+            "ORDER BY pv.date"
         )
-        return query(sql, [path_str, corp_code, start_date, end_date])
+        return query(sql, [path_str, map_path_str, corp_code, start_date, end_date])
 
     df = await anyio.to_thread.run_sync(_load)
     records = df_to_records(df)
