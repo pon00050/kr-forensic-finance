@@ -69,7 +69,6 @@ krff audit --verbose
 
 | Gap | Why | Status |
 |-----|-----|--------|
-| `test_pipeline_invariants.py:1231,1244,1377,1379` — stale skip guards | Tests claim `extract_cb_bw.py` missing but it exists; path constant likely stale | Unblocked — false negatives |
 | Phase 3 stubs (`monitor/dart_rss.py`, `cli.py monitor/alerts`, `app.py alerts/monitor`) | Phase 3 not started | Deferred — Phase 3 |
 | Pydantic models in `src/models.py` not enforced at runtime | Functions return raw dicts; FastAPI validates at serialization boundary only | Deferred — Phase 3 |
 | `extract_bondholder_register.py:91` — pagination missing | Only fetches first page of CB filings (>100 not handled) | Unblocked — low priority |

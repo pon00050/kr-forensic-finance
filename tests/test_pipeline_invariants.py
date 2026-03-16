@@ -1223,12 +1223,7 @@ class TestCbBwSchema:
     # Parse logic unit tests (no HTTP)
     def test_parse_cb_response_status_013_returns_empty(self):
         """Parser with status 013 (no data) must return empty list."""
-        import sys
-        # conftest.py adds 02_Pipeline to sys.path
-        try:
-            import extract_cb_bw as ecb
-        except ImportError:
-            pytest.skip("extract_cb_bw.py not yet implemented")
+        import extract_cb_bw as ecb
         result = ecb._parse_dart_response(
             {"status": "013", "message": "no data"}, corp_code="00000001", bond_type="CB"
         )
@@ -1236,12 +1231,7 @@ class TestCbBwSchema:
 
     def test_parse_cb_response_valid_returns_rows(self):
         """Parser with valid response returns rows with expected fields."""
-        import sys
-        # conftest.py adds 02_Pipeline to sys.path
-        try:
-            import extract_cb_bw as ecb
-        except ImportError:
-            pytest.skip("extract_cb_bw.py not yet implemented")
+        import extract_cb_bw as ecb
         mock_response = {
             "status": "000",
             "message": "OK",
@@ -1371,12 +1361,7 @@ class TestCbBwScopingFilter:
         When: build_scoped_universe() is called.
         Then: result contains those 3 corp_codes (at minimum).
         """
-        try:
-            import extract_cb_bw as ecb
-        except ImportError:
-            pytest.skip("extract_cb_bw.py not yet implemented")
-        if not hasattr(ecb, "build_scoped_universe"):
-            pytest.skip("build_scoped_universe() not yet implemented in extract_cb_bw.py")
+        import extract_cb_bw as ecb
 
         # Synthetic beneish_scores with 5 companies
         scores = pd.DataFrame({
