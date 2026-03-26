@@ -25,7 +25,7 @@ def test_cli_version():
     """version prints the package version string."""
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert "kr-forensic-finance" in result.output
+    assert "krff-shell" in result.output
     assert "1.5.0" in result.output
 
 

@@ -31,7 +31,13 @@ app = typer.Typer(
     add_completion=False,
 )
 
-_VERSION = _pkg_version("kr-forensic-finance")
+try:
+    _VERSION = _pkg_version("krff-shell")
+except Exception:
+    try:
+        _VERSION = _pkg_version("kr-forensic-finance")
+    except Exception:
+        _VERSION = "unknown"
 _DEFAULT_PARQUET = Path(__file__).parent / "01_Data" / "processed" / "beneish_scores.parquet"
 _ANALYSIS_DIR = Path(__file__).parent / "03_Analysis"
 
@@ -682,8 +688,8 @@ def batch_report(
 
 @app.command()
 def version() -> None:
-    """Print kr-forensic-finance version."""
-    typer.echo(f"kr-forensic-finance v{_VERSION}")
+    """Print krff-shell version."""
+    typer.echo(f"krff-shell v{_VERSION}")
 
 
 if __name__ == "__main__":
