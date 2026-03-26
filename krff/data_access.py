@@ -4,7 +4,7 @@ Extracted from src/report.py so that future FastAPI endpoints, CLI commands,
 and analysis scripts can load data without depending on the report module.
 
 Usage:
-    from src.data_access import load_parquet, load_csv, load_company_name
+    from krff.data_access import load_parquet, load_csv, load_company_name
     df = load_parquet("beneish_scores.parquet", corp_code="01051092")
     df_all = load_parquet("beneish_scores.parquet")  # all rows
 """
@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from src._paths import PROJECT_ROOT, PROCESSED_DIR
-from src.db import read_table, query, parquet_path, to_duckdb_path
+from krff._paths import PROJECT_ROOT, PROCESSED_DIR
+from krff.db import read_table, query, parquet_path, to_duckdb_path
 
 log = logging.getLogger(__name__)
 

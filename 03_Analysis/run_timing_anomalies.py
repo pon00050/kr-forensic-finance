@@ -28,7 +28,7 @@ for _p in (str(ROOT), str(ROOT / "03_Analysis")):
         sys.path.insert(0, _p)
 
 from _scoring import score_disclosures  # noqa: E402
-from src.constants import TIMING_GAP_HOURS_ASSUMED  # noqa: E402
+from krff.constants import TIMING_GAP_HOURS_ASSUMED  # noqa: E402
 
 MATERIAL_KEYWORDS = [
     "주요사항", "전환사채", "신주인수권", "유상증자", "합병", "분할", "양수도",

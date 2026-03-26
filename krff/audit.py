@@ -5,7 +5,7 @@ compares output vs input file modification times, propagates staleness
 downstream, and returns an ordered list of rerun commands.
 
 Usage:
-    from src.audit import get_audit, format_audit
+    from krff.audit import get_audit, format_audit
     result = get_audit()
     print(format_audit(result))
     print(format_audit(result, verbose=True))
@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from src._paths import PROJECT_ROOT as _PROJECT_ROOT
+from krff._paths import PROJECT_ROOT as _PROJECT_ROOT
 
 
 @dataclass

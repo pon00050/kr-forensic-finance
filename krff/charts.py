@@ -11,7 +11,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from src.constants import BENEISH_THRESHOLD
+from krff.constants import BENEISH_THRESHOLD
 
 _RISK_TIER_COLORS = {
     "Low": "#2ecc71",

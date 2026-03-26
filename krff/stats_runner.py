@@ -4,7 +4,7 @@ Encodes the DAG of 14 statistical test scripts, checks staleness,
 and returns an ordered audit result with skip gates (labels, SEIBRO, upstream).
 
 Usage:
-    from src.stats_runner import get_stats_audit, format_stats_audit
+    from krff.stats_runner import get_stats_audit, format_stats_audit
     result = get_stats_audit()
     print(format_stats_audit(result))
     print(format_stats_audit(result, verbose=True))
@@ -16,8 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from src._paths import PROJECT_ROOT as _PROJECT_ROOT
-from src.audit import is_stale
+from krff._paths import PROJECT_ROOT as _PROJECT_ROOT
+from krff.audit import is_stale
 
 
 MIN_LABELS = 5

@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.constants import BENEISH_THRESHOLD
+from krff.constants import BENEISH_THRESHOLD
 
 ROOT = Path(__file__).resolve().parents[1]
 # conftest.py already adds 02_Pipeline to sys.path
@@ -448,33 +448,33 @@ class TestChartGeneration:
     """Verify all chart functions execute without error on synthetic data."""
 
     def test_chart_distribution(self, scored):
-        from src.charts import chart_distribution
+        from krff.charts import chart_distribution
         fig = chart_distribution(scored)
         assert fig is not None
         assert hasattr(fig, "to_html")
 
     def test_chart_risk_sector(self, scored):
-        from src.charts import chart_risk_sector
+        from krff.charts import chart_risk_sector
         fig = chart_risk_sector(scored)
         assert fig is not None
 
     def test_chart_year_trend(self, scored):
-        from src.charts import chart_year_trend
+        from krff.charts import chart_year_trend
         fig = chart_year_trend(scored)
         assert fig is not None
 
     def test_chart_components(self, scored):
-        from src.charts import chart_components
+        from krff.charts import chart_components
         fig = chart_components(scored)
         assert fig is not None
 
     def test_chart_heatmap(self, scored):
-        from src.charts import chart_heatmap
+        from krff.charts import chart_heatmap
         fig = chart_heatmap(scored)
         assert fig is not None
 
     def test_generate_charts_writes_html(self, scored, tmp_path):
-        from src.charts import generate_charts
+        from krff.charts import generate_charts
         html_path = generate_charts(scored, tmp_path)
         assert html_path.exists()
         content = html_path.read_text(encoding="utf-8")
@@ -483,7 +483,7 @@ class TestChartGeneration:
         assert len(content) > 10_000, f"HTML too small ({len(content)} bytes)"
 
     def test_export_html_contains_all_charts(self, scored, tmp_path):
-        from src.charts import generate_charts
+        from krff.charts import generate_charts
         html_path = generate_charts(scored, tmp_path)
         content = html_path.read_text(encoding="utf-8")
         for i in range(1, 6):
@@ -530,10 +530,10 @@ class TestSrcWrappers:
     """Verify src/analysis.py and src/charts.py are importable and callable."""
 
     def test_src_charts_importable(self):
-        from src.charts import generate_charts, chart_distribution
+        from krff.charts import generate_charts, chart_distribution
         assert callable(generate_charts)
         assert callable(chart_distribution)
 
     def test_src_analysis_importable(self):
-        from src.analysis import run_beneish_screen
+        from krff.analysis import run_beneish_screen
         assert callable(run_beneish_screen)

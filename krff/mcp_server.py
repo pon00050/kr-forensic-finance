@@ -18,7 +18,7 @@ Tools:
 
 Usage:
     From app.py:
-        from src.mcp_server import mcp_server
+        from krff.mcp_server import mcp_server
         mcp_app = mcp_server.http_app(path="/")
         app.mount("/mcp", mcp_app)
 """
@@ -35,7 +35,7 @@ from fastmcp import FastMCP, Context
 from fastmcp.exceptions import ToolError
 from pydantic import Field
 
-from src.data_access import (
+from krff.data_access import (
     CB_BW_CSV,
     NETWORK_CSV,
     TIMING_CSV,
@@ -44,9 +44,9 @@ from src.data_access import (
     load_officer_network,
     load_parquet,
 )
-from src.db import parquet_path, query, to_duckdb_path
-from src.mcp_utils import df_to_json_str, df_to_records, paginate, sanitize_for_json
-from src.report import get_company_summary as _get_company_summary
+from krff.db import parquet_path, query, to_duckdb_path
+from krff.mcp_utils import df_to_json_str, df_to_records, paginate, sanitize_for_json
+from krff.report import get_company_summary as _get_company_summary
 
 log = logging.getLogger(__name__)
 

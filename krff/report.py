@@ -1,7 +1,7 @@
 """src/report.py — per-company forensic HTML report generator.
 
 Usage:
-    from src.report import generate_report
+    from krff.report import generate_report
     path = generate_report("01051092", skip_claude=True)
     path = generate_report("01051092")  # with Claude synthesis if ANTHROPIC_API_KEY set
 """
@@ -22,8 +22,8 @@ import pandas as pd
 log = logging.getLogger(__name__)
 
 # ─── Path constants ────────────────────────────────────────────────────────────
-from src._paths import PROJECT_ROOT as _PROJECT_ROOT
-from src import data_access as _da
+from krff._paths import PROJECT_ROOT as _PROJECT_ROOT
+from krff import data_access as _da
 
 _REPORTS_DIR = _PROJECT_ROOT / "03_Analysis" / "reports"
 

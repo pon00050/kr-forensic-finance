@@ -15,8 +15,8 @@ Gap:
       cross-check against data.go.kr 특일정보 API (dataset 15012690).
 
 Usage:
-    from src.trading_calendar import is_trading_day, trading_day_offset
-    from src.trading_calendar import trading_days_in_range
+    from krff.trading_calendar import is_trading_day, trading_day_offset
+    from krff.trading_calendar import trading_days_in_range
 """
 
 from __future__ import annotations

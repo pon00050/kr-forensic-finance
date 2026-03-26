@@ -152,7 +152,7 @@ def _score_disclosures(df_disc_clean, df_pv_clean, df_map, pd, np):
     """Score each disclosure against timing anomaly criteria."""
     import sys as _sys, pathlib as _pl
     _sys.path.insert(0, str(_pl.Path(__file__).resolve().parents[1]))
-    from src.constants import TIMING_GAP_HOURS_ASSUMED, TIMING_GAP_HOURS_PRIOR_DAY
+    from krff.constants import TIMING_GAP_HOURS_ASSUMED, TIMING_GAP_HOURS_PRIOR_DAY
 
     # DART listing API returns dates only — use timing label to differentiate gap.
     # same_day:  filing ~18:00 KST, market close 15:30 → 2.5 h gap

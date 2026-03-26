@@ -14,7 +14,7 @@ from typing import TypedDict
 import numpy as np
 import pandas as pd
 
-from src.constants import (
+from krff.constants import (
     FLAG_REPRICING_BELOW_MARKET,
     FLAG_EXERCISE_AT_PEAK,
     FLAG_VOLUME_SURGE,

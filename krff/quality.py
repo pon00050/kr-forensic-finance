@@ -1,7 +1,7 @@
 """src/quality.py -- data quality report for all pipeline artifacts.
 
 Usage:
-    from src.quality import get_quality, format_quality
+    from krff.quality import get_quality, format_quality
     print(format_quality(get_quality()))
     print(format_quality(get_quality(), verbose=True))
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-from src._paths import PROJECT_ROOT as _PROJECT_ROOT, PROCESSED_DIR as _PROCESSED
+from krff._paths import PROJECT_ROOT as _PROJECT_ROOT, PROCESSED_DIR as _PROCESSED
 
 _STAT_OUTPUTS = _PROJECT_ROOT / "03_Analysis" / "statistical_tests" / "outputs"
 
@@ -65,7 +65,7 @@ def get_quality(
     # Single DuckDB connection for the entire scan — one connection open/close
     # instead of one per table, reducing overhead from O(N tables) to O(1).
     import duckdb
-    from src.db import to_duckdb_path as _dpath, query as _db_query
+    from krff.db import to_duckdb_path as _dpath, query as _db_query
     tables = []
     con = duckdb.connect()
     try:

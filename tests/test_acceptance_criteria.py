@@ -288,7 +288,7 @@ class TestReportAcceptance:
         if not beneish_p.exists():
             pytest.skip("beneish_scores.parquet not found — run the pipeline first")
 
-        from src.report import generate_report
+        from krff.report import generate_report
 
         out = tmp_path / "01051092_report.html"
         result = generate_report("01051092", output_path=out, skip_claude=True)
@@ -305,7 +305,7 @@ class TestReportAcceptance:
         if not cb_bw_p.exists():
             pytest.skip("cb_bw_summary.csv not found — run run_cb_bw_timelines.py first")
 
-        from src.report import generate_report
+        from krff.report import generate_report
 
         out = tmp_path / "01051092_cb_bw_report.html"
         result = generate_report("01051092", output_path=out, skip_claude=True)

@@ -6,7 +6,7 @@ plain dicts. A future FastAPI layer will call .model_validate() at the
 serialization boundary.
 
 Usage:
-    from src.models import CompanySummary, PipelineStatus, DataQuality
+    from krff.models import CompanySummary, PipelineStatus, DataQuality
     CompanySummary.model_validate(get_company_summary("01051092"))
 """
 

@@ -1592,7 +1592,7 @@ class TestOfficerFlagThreshold:
         import ast
         src_path = (
             pathlib.Path(__file__).resolve().parents[1]
-            / "src"
+            / "krff"
             / "constants.py"
         )
         assert src_path.exists(), f"constants.py not found at {src_path}"
@@ -2055,7 +2055,7 @@ class TestReportModule:
 
     def _patch_loaders(self, monkeypatch, beneish_df, cb_bw_df, timing_df):
         """Monkeypatch all loaders and CSV path constants in src.data_access."""
-        import src.data_access as da
+        import krff.data_access as da
 
         def _filter(df, cc):
             if df.empty:
@@ -2077,7 +2077,7 @@ class TestReportModule:
         self, tmp_path, monkeypatch, synthetic_beneish, synthetic_cb_bw, synthetic_timing
     ):
         """generate_report returns a Path that exists, is >5KB, is valid HTML."""
-        import src.report as rpt
+        import krff.report as rpt
         self._patch_loaders(monkeypatch, synthetic_beneish, synthetic_cb_bw, synthetic_timing)
         out = tmp_path / "01051092_report.html"
         result = rpt.generate_report("01051092", output_path=out, skip_claude=True)
@@ -2092,7 +2092,7 @@ class TestReportModule:
         self, tmp_path, monkeypatch, synthetic_beneish, synthetic_cb_bw, synthetic_timing
     ):
         """HTML report contains all 5 major section headings."""
-        import src.report as rpt
+        import krff.report as rpt
         self._patch_loaders(monkeypatch, synthetic_beneish, synthetic_cb_bw, synthetic_timing)
         out = tmp_path / "sections_report.html"
         rpt.generate_report("01051092", output_path=out, skip_claude=True)
@@ -2102,7 +2102,7 @@ class TestReportModule:
 
     def test_report_empty_sections_show_note(self, tmp_path, monkeypatch):
         """With all-empty data, report generates without raising and contains note text."""
-        import src.report as rpt
+        import krff.report as rpt
         self._patch_loaders(monkeypatch, pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
         out = tmp_path / "empty_report.html"
         rpt.generate_report("01051092", output_path=out, skip_claude=True)
@@ -2115,8 +2115,8 @@ class TestReportModule:
 
     def test_corp_code_zero_padded(self, tmp_path, monkeypatch):
         """Passing '1051092' (7 digits) causes loaders to be called with '01051092'."""
-        import src.data_access as da
-        import src.report as rpt
+        import krff.data_access as da
+        import krff.report as rpt
         called_with: list[str] = []
 
         def fake_load_parquet(name: str, cc=None, sort_by=None, processed_dir=None) -> pd.DataFrame:
@@ -2139,21 +2139,21 @@ class TestReportModule:
     def test_mscore_trend_chart_returns_figure(self, synthetic_beneish):
         """chart_mscore_trend returns a go.Figure."""
         import plotly.graph_objects as go
-        from src.report import chart_mscore_trend
+        from krff.report import chart_mscore_trend
         fig = chart_mscore_trend(synthetic_beneish)
         assert isinstance(fig, go.Figure)
 
     def test_component_bar_chart_returns_figure(self, synthetic_beneish):
         """chart_component_bar returns a go.Figure."""
         import plotly.graph_objects as go
-        from src.report import chart_component_bar
+        from krff.report import chart_component_bar
         fig = chart_component_bar(synthetic_beneish)
         assert isinstance(fig, go.Figure)
 
     def test_chart_functions_handle_empty_input(self):
         """All 4 chart functions handle pd.DataFrame() without raising."""
         import plotly.graph_objects as go
-        from src.report import (
+        from krff.report import (
             chart_cb_bw_timeline,
             chart_component_bar,
             chart_mscore_trend,
@@ -2166,7 +2166,7 @@ class TestReportModule:
     def test_synthesize_with_claude_no_key(self, monkeypatch):
         """synthesize_with_claude returns [] when ANTHROPIC_API_KEY not in env."""
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        from src.report import synthesize_with_claude
+        from krff.report import synthesize_with_claude
         result = synthesize_with_claude({"corp_code": "01051092", "company_name": "test"})
         assert result == []
 
@@ -2187,7 +2187,7 @@ class TestReportModule:
         class _FakeClient:
             messages = _FakeMessages()
 
-        import src.report as rpt
+        import krff.report as rpt
         monkeypatch.setattr(rpt, "_make_anthropic_client", lambda: _FakeClient())
         result = rpt.synthesize_with_claude({"corp_code": "01051092", "company_name": "test"})
         assert isinstance(result, list)
@@ -2276,7 +2276,7 @@ class TestQualityModule:
 
     def test_get_quality_returns_expected_keys(self, tmp_path):
         """get_quality() must return a dict with the four top-level keys."""
-        from src.quality import get_quality
+        from krff.quality import get_quality
 
         # Use tmp_path as both dirs so no real files needed
         result = get_quality(processed_dir=tmp_path, stat_outputs_dir=tmp_path)
@@ -2291,7 +2291,7 @@ class TestQualityModule:
 
     def test_format_quality_contains_section_headers(self, tmp_path):
         """format_quality() output must contain the three section headers."""
-        from src.quality import get_quality, format_quality
+        from krff.quality import get_quality, format_quality
 
         result = get_quality(processed_dir=tmp_path, stat_outputs_dir=tmp_path)
         output = format_quality(result, verbose=False)
@@ -2302,7 +2302,7 @@ class TestQualityModule:
     def test_format_quality_verbose_includes_col_detail(self, tmp_path):
         """format_quality(verbose=True) must include per-column null detail for tables with nulls."""
         import pandas as pd
-        from src.quality import get_quality, format_quality
+        from krff.quality import get_quality, format_quality
 
         # Create a minimal parquet with a null column so verbose output has something to show
         df = pd.DataFrame({"a": [1, None, 3], "b": ["x", "y", "z"]})
@@ -2354,7 +2354,7 @@ class TestConstantsConsolidation:
     """Verify all scoring constants exist in src/constants.py with correct types."""
 
     def test_cb_bw_scoring_constants_exist(self):
-        from src.constants import (
+        from krff.constants import (
             REPRICING_DISCOUNT_RATIO,
             EXERCISE_PEAK_WINDOW_CALENDAR_DAYS,
             VOLUME_SURGE_RATIO,
@@ -2368,7 +2368,7 @@ class TestConstantsConsolidation:
         assert isinstance(PRICE_WINDOW_TRADING_DAYS, int)
 
     def test_timing_constants_exist(self):
-        from src.constants import (
+        from krff.constants import (
             TIMING_PRICE_CHANGE_PCT,
             TIMING_VOLUME_RATIO,
             TIMING_BORDERLINE_PRICE_PCT,
@@ -2378,7 +2378,7 @@ class TestConstantsConsolidation:
         assert isinstance(TIMING_BORDERLINE_PRICE_PCT, float)
 
     def test_officer_flag_threshold_exists(self):
-        from src.constants import OFFICER_FLAG_THRESHOLD
+        from krff.constants import OFFICER_FLAG_THRESHOLD
         assert OFFICER_FLAG_THRESHOLD == 2
 
 
@@ -2413,20 +2413,20 @@ class TestDataAccessModule:
     """Tests for src/data_access.py."""
 
     def test_load_parquet_missing_file(self, tmp_path):
-        from src.data_access import load_parquet
+        from krff.data_access import load_parquet
         result = load_parquet("nonexistent.parquet", processed_dir=tmp_path)
         assert isinstance(result, pd.DataFrame)
         assert result.empty
 
     def test_load_parquet_no_filter(self, tmp_path):
-        from src.data_access import load_parquet
+        from krff.data_access import load_parquet
         df = pd.DataFrame({"corp_code": ["01051092", "00364254"], "val": [1, 2]})
         df.to_parquet(tmp_path / "test.parquet", index=False)
         result = load_parquet("test.parquet", processed_dir=tmp_path)
         assert len(result) == 2
 
     def test_load_parquet_with_filter(self, tmp_path):
-        from src.data_access import load_parquet
+        from krff.data_access import load_parquet
         df = pd.DataFrame({"corp_code": ["01051092", "00364254"], "val": [1, 2]})
         df.to_parquet(tmp_path / "test.parquet", index=False)
         result = load_parquet("test.parquet", corp_code="01051092", processed_dir=tmp_path)
@@ -2434,18 +2434,18 @@ class TestDataAccessModule:
         assert result["corp_code"].iloc[0] == "01051092"
 
     def test_load_csv_missing_file(self):
-        from src.data_access import load_csv
+        from krff.data_access import load_csv
         result = load_csv(pathlib.Path("/nonexistent/file.csv"))
         assert isinstance(result, pd.DataFrame)
         assert result.empty
 
     def test_load_company_name_from_beneish(self):
-        from src.data_access import load_company_name
+        from krff.data_access import load_company_name
         df = pd.DataFrame({"company_name": ["피씨엘"]})
         assert load_company_name("01051092", beneish_df=df) == "피씨엘"
 
     def test_load_company_name_fallback(self, tmp_path):
-        from src.data_access import load_company_name
+        from krff.data_access import load_company_name
         result = load_company_name("99999999", processed_dir=tmp_path)
         assert result == "99999999"
 
@@ -2456,9 +2456,9 @@ class TestPydanticModels:
     """Validate Pydantic models against actual function output shapes."""
 
     def test_company_summary_validates(self, monkeypatch):
-        import src.data_access as da
-        from src.models import CompanySummary
-        from src.report import get_company_summary
+        import krff.data_access as da
+        from krff.models import CompanySummary
+        from krff.report import get_company_summary
 
         monkeypatch.setattr(da, "load_parquet", lambda name, cc=None, sort_by=None, processed_dir=None: pd.DataFrame())
         monkeypatch.setattr(da, "load_company_name", lambda cc, beneish_df=None, processed_dir=None: "Test")
@@ -2473,16 +2473,16 @@ class TestPydanticModels:
         assert validated.corp_code == "01051092"
 
     def test_pipeline_status_validates(self, tmp_path):
-        from src.models import PipelineStatus
-        from src.status import get_status
+        from krff.models import PipelineStatus
+        from krff.status import get_status
 
         result = get_status(processed_dir=tmp_path, run_summary_path=tmp_path / "none.json")
         validated = PipelineStatus.model_validate(result)
         assert validated.summary.total > 0
 
     def test_data_quality_validates(self, tmp_path):
-        from src.models import DataQuality
-        from src.quality import get_quality
+        from krff.models import DataQuality
+        from krff.quality import get_quality
 
         result = get_quality(processed_dir=tmp_path, stat_outputs_dir=tmp_path)
         validated = DataQuality.model_validate(result)
@@ -2495,7 +2495,7 @@ class TestReportPublicAPI:
     """Tests for get_company_summary() and get_report_html()."""
 
     def _patch_da(self, monkeypatch):
-        import src.data_access as da
+        import krff.data_access as da
         monkeypatch.setattr(da, "load_parquet", lambda name, cc=None, sort_by=None, processed_dir=None: pd.DataFrame())
         monkeypatch.setattr(da, "load_company_name", lambda cc, beneish_df=None, processed_dir=None: "TestCo")
         monkeypatch.setattr(da, "load_csv", lambda path, cc=None: pd.DataFrame())
@@ -2505,7 +2505,7 @@ class TestReportPublicAPI:
         monkeypatch.setattr(da, "NETWORK_CSV", pathlib.Path("/nonexistent"))
 
     def test_get_company_summary_returns_dict(self, monkeypatch):
-        from src.report import get_company_summary
+        from krff.report import get_company_summary
         self._patch_da(monkeypatch)
         result = get_company_summary("01051092")
         assert isinstance(result, dict)
@@ -2513,7 +2513,7 @@ class TestReportPublicAPI:
         assert result["company_name"] == "TestCo"
 
     def test_get_report_html_returns_string(self, monkeypatch):
-        from src.report import get_report_html
+        from krff.report import get_report_html
         self._patch_da(monkeypatch)
         result = get_report_html("01051092")
         assert isinstance(result, str)
@@ -2529,14 +2529,14 @@ class TestPathsEnvOverride:
         monkeypatch.setenv("KRFF_DATA_DIR", str(tmp_path / "custom"))
         # Force reimport to pick up env var
         import importlib
-        import src._paths
-        importlib.reload(src._paths)
+        import krff._paths
+        importlib.reload(krff._paths)
         try:
-            assert src._paths.PROCESSED_DIR == tmp_path / "custom"
+            assert krff._paths.PROCESSED_DIR == tmp_path / "custom"
         finally:
             # Restore original
             monkeypatch.delenv("KRFF_DATA_DIR", raising=False)
-            importlib.reload(src._paths)
+            importlib.reload(krff._paths)
 
 
 # ─── Category 28: DuckDB query contracts ────────────────────────────────────────
@@ -2558,14 +2558,14 @@ class TestDuckDBQueryContracts:
 
     def test_missing_parquet_returns_empty_df(self, tmp_path):
         """read_table() on nonexistent file returns empty DataFrame, no crash."""
-        from src.db import read_table
+        from krff.db import read_table
         result = read_table("nonexistent_table", processed_dir=tmp_path)
         assert isinstance(result, pd.DataFrame)
         assert result.empty
 
     def test_query_result_schema_matches(self, tmp_path):
         """Columns from DuckDB match parquet file columns."""
-        from src.db import read_table
+        from krff.db import read_table
         path = self._write_test_parquet(tmp_path)
         result = read_table(path.stem, processed_dir=tmp_path)
         assert set(result.columns) == {"corp_code", "year", "m_score"}
@@ -2573,7 +2573,7 @@ class TestDuckDBQueryContracts:
 
     def test_corp_code_filtering(self, tmp_path):
         """WHERE corp_code works with zero-padding."""
-        from src.db import read_table
+        from krff.db import read_table
         self._write_test_parquet(tmp_path)
         result = read_table("test", corp_code="00111111", processed_dir=tmp_path)
         assert len(result) == 2
@@ -2581,14 +2581,14 @@ class TestDuckDBQueryContracts:
 
     def test_corp_code_filter_no_corp_code_column(self, tmp_path):
         """Table without corp_code col + filter returns empty DataFrame."""
-        from src.db import read_table
+        from krff.db import read_table
         self._write_test_parquet(tmp_path, data={"x": [1, 2], "y": [3, 4]})
         result = read_table("test", corp_code="00111111", processed_dir=tmp_path)
         assert result.empty
 
     def test_parameterized_query_prevents_injection(self, tmp_path):
         """Injection string in corp_code returns empty result, no error."""
-        from src.db import read_table
+        from krff.db import read_table
         self._write_test_parquet(tmp_path)
         result = read_table(
             "test",
@@ -2599,7 +2599,7 @@ class TestDuckDBQueryContracts:
 
     def test_sort_by_column(self, tmp_path):
         """ORDER BY year works correctly."""
-        from src.db import read_table
+        from krff.db import read_table
         self._write_test_parquet(tmp_path)
         result = read_table("test", sort_by="year", processed_dir=tmp_path)
         assert len(result) == 3
@@ -2607,7 +2607,7 @@ class TestDuckDBQueryContracts:
 
     def test_query_raw_sql(self, tmp_path):
         """Low-level query() with params executes correctly."""
-        from src.db import query, to_duckdb_path
+        from krff.db import query, to_duckdb_path
         path = self._write_test_parquet(tmp_path)
         path_str = to_duckdb_path(path)
         result = query(
@@ -2618,7 +2618,7 @@ class TestDuckDBQueryContracts:
 
     def test_data_access_load_parquet_integration(self, tmp_path):
         """load_parquet() still works after DuckDB migration (end-to-end)."""
-        from src.data_access import load_parquet
+        from krff.data_access import load_parquet
         self._write_test_parquet(tmp_path, name="beneish_scores.parquet")
         result = load_parquet(
             "beneish_scores.parquet",
@@ -2641,21 +2641,21 @@ class TestDuckDBPathHelper:
 
     def test_normalizes_backslashes(self):
         """Windows-style backslash paths are converted to forward slashes."""
-        from src.db import to_duckdb_path
+        from krff.db import to_duckdb_path
         result = to_duckdb_path("C:\\Users\\foo\\bar.parquet")
         assert "\\" not in result
         assert result == "C:/Users/foo/bar.parquet"
 
     def test_forward_slashes_unchanged(self):
         """Paths that already use forward slashes pass through unmodified."""
-        from src.db import to_duckdb_path
+        from krff.db import to_duckdb_path
         original = "C:/Users/foo/bar.parquet"
         assert to_duckdb_path(original) == original
 
     def test_accepts_path_object(self):
         """pathlib.Path objects are accepted and returned as forward-slash strings."""
         from pathlib import Path
-        from src.db import to_duckdb_path
+        from krff.db import to_duckdb_path
         p = Path("C:/Users/foo/bar.parquet")
         result = to_duckdb_path(p)
         assert isinstance(result, str)
@@ -2734,7 +2734,7 @@ class TestAudit:
 
     def test_ok_when_output_newer_than_input(self, tmp_path):
         """If output mtime > all input mtimes, stage reports 'ok'."""
-        from src.audit import get_audit, DAG, StageNode
+        from krff.audit import get_audit, DAG, StageNode
 
         # Build a minimal single-stage DAG in tmp_path
         inp = tmp_path / "input.json"
@@ -2753,7 +2753,7 @@ class TestAudit:
         ]
 
         import unittest.mock as mock
-        with mock.patch("src.audit.DAG", single_dag):
+        with mock.patch("krff.audit.DAG", single_dag):
             result = get_audit(project_root=tmp_path)
 
         assert len(result["stages"]) == 1
@@ -2763,7 +2763,7 @@ class TestAudit:
 
     def test_stale_when_output_older_than_input(self, tmp_path):
         """If a newer input exists after output was written, stage reports 'stale'."""
-        from src.audit import get_audit, StageNode
+        from krff.audit import get_audit, StageNode
 
         out = tmp_path / "output.parquet"
         inp = tmp_path / "input.json"
@@ -2781,7 +2781,7 @@ class TestAudit:
         ]
 
         import unittest.mock as mock
-        with mock.patch("src.audit.DAG", single_dag):
+        with mock.patch("krff.audit.DAG", single_dag):
             result = get_audit(project_root=tmp_path)
 
         assert result["stages"][0]["status"] == "stale"
@@ -2790,7 +2790,7 @@ class TestAudit:
 
     def test_missing_when_output_absent(self, tmp_path):
         """If output file does not exist, stage reports 'missing'."""
-        from src.audit import get_audit, StageNode
+        from krff.audit import get_audit, StageNode
 
         inp = tmp_path / "input.json"
         self._write(inp)
@@ -2806,7 +2806,7 @@ class TestAudit:
         ]
 
         import unittest.mock as mock
-        with mock.patch("src.audit.DAG", single_dag):
+        with mock.patch("krff.audit.DAG", single_dag):
             result = get_audit(project_root=tmp_path)
 
         assert result["stages"][0]["status"] == "missing"
@@ -2814,7 +2814,7 @@ class TestAudit:
 
     def test_propagated_staleness(self, tmp_path):
         """If an upstream stage is stale, downstream stage reports 'propagated_stale'."""
-        from src.audit import get_audit, StageNode
+        from krff.audit import get_audit, StageNode
         import time
 
         # Stage A: raw → intermediate (intermediate is OLDER than raw → stale)
@@ -2844,7 +2844,7 @@ class TestAudit:
         ]
 
         import unittest.mock as mock
-        with mock.patch("src.audit.DAG", two_stage_dag):
+        with mock.patch("krff.audit.DAG", two_stage_dag):
             result = get_audit(project_root=tmp_path)
 
         stage_a = result["stages"][0]
@@ -2857,7 +2857,7 @@ class TestAudit:
 
     def test_rerun_order_deduplicates_same_command(self, tmp_path):
         """Two stages sharing the same rerun_cmd appear only once in rerun_order."""
-        from src.audit import get_audit, StageNode
+        from krff.audit import get_audit, StageNode
         import time
 
         raw = tmp_path / "raw.json"
@@ -2876,14 +2876,14 @@ class TestAudit:
         ]
 
         import unittest.mock as mock
-        with mock.patch("src.audit.DAG", two_stage_dag):
+        with mock.patch("krff.audit.DAG", two_stage_dag):
             result = get_audit(project_root=tmp_path)
 
         assert result["rerun_order"].count(shared_cmd) == 1
 
     def test_format_audit_contains_key_labels(self, tmp_path):
         """format_audit output includes status labels for stale and ok stages."""
-        from src.audit import get_audit, format_audit, StageNode
+        from krff.audit import get_audit, format_audit, StageNode
         import time
 
         inp = tmp_path / "inp.json"
@@ -2902,7 +2902,7 @@ class TestAudit:
         ]
 
         import unittest.mock as mock
-        with mock.patch("src.audit.DAG", dag):
+        with mock.patch("krff.audit.DAG", dag):
             result = get_audit(project_root=tmp_path)
         text = format_audit(result)
 
@@ -2912,7 +2912,7 @@ class TestAudit:
 
     def test_format_audit_verbose_shows_inputs(self, tmp_path):
         """With verbose=True, all input paths and their mtimes appear in output."""
-        from src.audit import get_audit, format_audit, StageNode
+        from krff.audit import get_audit, format_audit, StageNode
         import time
 
         inp = tmp_path / "inp.json"
@@ -2924,7 +2924,7 @@ class TestAudit:
         dag = [StageNode(stage="s", output="out.parquet", inputs=["inp.json"], rerun_cmd="echo x")]
 
         import unittest.mock as mock
-        with mock.patch("src.audit.DAG", dag):
+        with mock.patch("krff.audit.DAG", dag):
             result = get_audit(project_root=tmp_path)
         text = format_audit(result, verbose=True)
 
@@ -3116,7 +3116,7 @@ class TestScoringInvariants:
 
     def test_gap_hours_constant_exists_in_constants(self):
         """Fix B1: TIMING_GAP_HOURS_ASSUMED must exist in src.constants and equal 2.5."""
-        import src.constants as constants
+        import krff.constants as constants
         assert hasattr(constants, "TIMING_GAP_HOURS_ASSUMED"), (
             "TIMING_GAP_HOURS_ASSUMED missing from src/constants.py"
         )
@@ -3128,7 +3128,7 @@ class TestScoringInvariants:
 
     def test_gap_hours_prior_day_constant_exists(self):
         """OQ3: TIMING_GAP_HOURS_PRIOR_DAY must exist in src.constants and equal 15.0."""
-        from src.constants import TIMING_GAP_HOURS_PRIOR_DAY
+        from krff.constants import TIMING_GAP_HOURS_PRIOR_DAY
         assert isinstance(TIMING_GAP_HOURS_PRIOR_DAY, float)
         assert TIMING_GAP_HOURS_PRIOR_DAY == 15.0
 
@@ -3136,7 +3136,7 @@ class TestScoringInvariants:
 
     def test_gap_hours_differentiates_by_timing(self):
         """OQ3: gap_hours must be 2.5 for same_day and 15.0 for prior_day."""
-        from src.constants import TIMING_GAP_HOURS_ASSUMED, TIMING_GAP_HOURS_PRIOR_DAY
+        from krff.constants import TIMING_GAP_HOURS_ASSUMED, TIMING_GAP_HOURS_PRIOR_DAY
         import pandas as pd
 
         df = pd.DataFrame({"timing": ["same_day", "prior_day", "same_day"]})
@@ -3256,7 +3256,7 @@ class TestStatsRunner:
 
     def test_stats_dag_topological_order(self):
         """upstream_stat references only appear after their dependency in STATS_DAG."""
-        from src.stats_runner import STATS_DAG
+        from krff.stats_runner import STATS_DAG
 
         seen = set()
         for node in STATS_DAG:
@@ -3269,7 +3269,7 @@ class TestStatsRunner:
 
     def test_check_labels_empty(self, tmp_path):
         """_check_labels returns (False, 0) when labels.csv is absent."""
-        from src.stats_runner import _check_labels
+        from krff.stats_runner import _check_labels
 
         ok, count = _check_labels(tmp_path)
         assert ok is False
@@ -3277,7 +3277,7 @@ class TestStatsRunner:
 
     def test_check_labels_sufficient(self, tmp_path):
         """_check_labels returns (True, N) when labels.csv has >= 5 data rows."""
-        from src.stats_runner import _check_labels, LABELS_PATH
+        from krff.stats_runner import _check_labels, LABELS_PATH
 
         labels_path = tmp_path / LABELS_PATH
         labels_path.parent.mkdir(parents=True, exist_ok=True)
@@ -3292,7 +3292,7 @@ class TestStatsRunner:
 
     def test_seibro_gate_skips_dependents(self, tmp_path, monkeypatch):
         """With seibro_ok=False, survival and permutation get skip_seibro status."""
-        import src.stats_runner as sr
+        import krff.stats_runner as sr
 
         monkeypatch.setattr(sr, "_check_seibro", lambda root: False)
         monkeypatch.setattr(sr, "_check_labels", lambda root: (True, 30))
@@ -3304,7 +3304,7 @@ class TestStatsRunner:
 
     def test_upstream_stat_gate(self, tmp_path, monkeypatch):
         """If pca output is missing, cross_screen and label_coverage get skip_upstream status."""
-        import src.stats_runner as sr
+        import krff.stats_runner as sr
 
         monkeypatch.setattr(sr, "_check_seibro", lambda root: False)
         monkeypatch.setattr(sr, "_check_labels", lambda root: (True, 30))
@@ -3322,7 +3322,7 @@ class TestStatsRunner:
     def test_stale_node_detected(self, tmp_path, monkeypatch):
         """Node with output older than its input is 'stale' in audit result."""
         import time
-        import src.stats_runner as sr
+        import krff.stats_runner as sr
 
         monkeypatch.setattr(sr, "_check_seibro", lambda root: False)
         monkeypatch.setattr(sr, "_check_labels", lambda root: (False, 0))
@@ -3988,46 +3988,46 @@ class TestKoreanTradingCalendar:
 
     def test_is_trading_day_known_session(self):
         """2021-01-08 (Friday, no holiday) is a KRX trading session."""
-        from src.trading_calendar import is_trading_day
+        from krff.trading_calendar import is_trading_day
         assert is_trading_day("2021-01-08") is True
 
     def test_is_trading_day_new_year(self):
         """2021-01-01 (신정) is NOT a trading session."""
-        from src.trading_calendar import is_trading_day
+        from krff.trading_calendar import is_trading_day
         assert is_trading_day("2021-01-01") is False
 
     def test_is_trading_day_seollal(self):
         """2021-02-12 (설날) is NOT a trading session."""
-        from src.trading_calendar import is_trading_day
+        from krff.trading_calendar import is_trading_day
         assert is_trading_day("2021-02-12") is False
 
     def test_is_trading_day_seollal_eve(self):
         """2021-02-11 (설날 연휴 시작) is NOT a trading session."""
-        from src.trading_calendar import is_trading_day
+        from krff.trading_calendar import is_trading_day
         assert is_trading_day("2021-02-11") is False
 
     def test_is_trading_day_chuseok(self):
         """2020-10-01 (추석) is NOT a trading session."""
-        from src.trading_calendar import is_trading_day
+        from krff.trading_calendar import is_trading_day
         assert is_trading_day("2020-10-01") is False
 
     def test_trading_day_offset_backward(self):
         """60 trading days before 2021-02-15 should be 2020-11-16."""
-        from src.trading_calendar import trading_day_offset
+        from krff.trading_calendar import trading_day_offset
         import pandas as pd
         result = trading_day_offset("2021-02-15", -60)
         assert result == pd.Timestamp("2020-11-16")
 
     def test_trading_day_offset_forward(self):
         """60 trading days after 2021-02-15 should be 2021-05-12."""
-        from src.trading_calendar import trading_day_offset
+        from krff.trading_calendar import trading_day_offset
         import pandas as pd
         result = trading_day_offset("2021-02-15", 60)
         assert result == pd.Timestamp("2021-05-12")
 
     def test_trading_day_window_gives_121_sessions(self):
         """True ±60 trading-day window around 2021-02-15 must contain 121 sessions."""
-        from src.trading_calendar import trading_day_offset, trading_days_in_range
+        from krff.trading_calendar import trading_day_offset, trading_days_in_range
         start = trading_day_offset("2021-02-15", -60)
         end = trading_day_offset("2021-02-15", 60)
         sessions = trading_days_in_range(start, end)
@@ -4039,7 +4039,7 @@ class TestKoreanTradingCalendar:
         This test is intentionally asymmetric — it asserts the OLD behaviour was wrong,
         so that future readers understand what was fixed.
         """
-        from src.trading_calendar import trading_days_in_range
+        from krff.trading_calendar import trading_days_in_range
         import pandas as pd
         # Old extraction: issue_dt - timedelta(60) to issue_dt
         old_start = pd.Timestamp("2020-12-17")   # 2021-02-15 - 60 calendar days
@@ -4050,7 +4050,7 @@ class TestKoreanTradingCalendar:
 
     def test_trading_days_in_range_basic(self):
         """trading_days_in_range returns a non-empty DatetimeIndex for a valid range."""
-        from src.trading_calendar import trading_days_in_range
+        from krff.trading_calendar import trading_days_in_range
         sessions = trading_days_in_range("2021-01-04", "2021-01-08")
         assert len(sessions) == 5  # Mon-Fri, no holidays that week
 
@@ -4137,7 +4137,7 @@ class TestScoringCorrectnessFixes:
 
         assert "BENEISH_THRESHOLD = " not in body, (
             "BENEISH_THRESHOLD is hardcoded inside batch_report — "
-            "import it from src.constants instead to avoid silent threshold drift"
+            "import it from krff.constants instead to avoid silent threshold drift"
         )
 
     # ── Test 3: score_disclosures output contract (regression guard for Fix 2B) ─

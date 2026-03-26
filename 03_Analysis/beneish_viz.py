@@ -32,37 +32,37 @@ def _load_data(pd, Path):
 
 @app.cell
 def _chart_distribution(df):
-    from src.charts import chart_distribution
+    from krff.charts import chart_distribution
     return (chart_distribution(df),)
 
 
 @app.cell
 def _chart_risk_sector(df):
-    from src.charts import chart_risk_sector
+    from krff.charts import chart_risk_sector
     return (chart_risk_sector(df),)
 
 
 @app.cell
 def _chart_year_trend(df):
-    from src.charts import chart_year_trend
+    from krff.charts import chart_year_trend
     return (chart_year_trend(df),)
 
 
 @app.cell
 def _chart_components(df):
-    from src.charts import chart_components
+    from krff.charts import chart_components
     return (chart_components(df),)
 
 
 @app.cell
 def _chart_heatmap(df):
-    from src.charts import chart_heatmap
+    from krff.charts import chart_heatmap
     return (chart_heatmap(df),)
 
 
 @app.cell
 def _export_html(df, Path):
-    from src.charts import generate_charts
+    from krff.charts import generate_charts
     _out = generate_charts(df, Path(__file__).parent)
     print(f"Wrote {_out} ({_out.stat().st_size / 1024:.0f} KB)")
     return

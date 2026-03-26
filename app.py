@@ -46,16 +46,16 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from src.db import async_query, parquet_path, to_duckdb_path
-from src.models import AlertList, CompanySummary, DataQuality, MonitorStatus, PipelineStatus
-from src.quality import get_quality
-from src.report import get_company_summary, get_report_html
-from src.status import get_status
+from krff.db import async_query, parquet_path, to_duckdb_path
+from krff.models import AlertList, CompanySummary, DataQuality, MonitorStatus, PipelineStatus
+from krff.quality import get_quality
+from krff.report import get_company_summary, get_report_html
+from krff.status import get_status
 
 # MCP server — optional; gracefully absent if fastmcp not installed
 try:
     from fastmcp.utilities.lifespan import combine_lifespans
-    from src.mcp_server import mcp_server as _mcp_module
+    from krff.mcp_server import mcp_server as _mcp_module
     _MCP_AVAILABLE = True
 except ImportError:
     _MCP_AVAILABLE = False
@@ -117,7 +117,7 @@ def _refresh_approved() -> None:
     """Reload _approved_free from SQLite if the TTL has expired."""
     global _approved_free, _approved_cache_ts
     if _time.monotonic() - _approved_cache_ts > _APPROVED_TTL:
-        from src.review import get_visible
+        from krff.review import get_visible
         _approved_free = get_visible("free")
         _approved_cache_ts = _time.monotonic()
 
@@ -248,7 +248,7 @@ async def lifespan(app: FastAPI):
     })
 
     # Build visible-free set from review_queue.db
-    from src.review import get_visible
+    from krff.review import get_visible
     _approved_free = get_visible("free")
     _approved_cache_ts = _time.monotonic()
     log.info("Visible free-tier corps: %d companies", len(_approved_free))

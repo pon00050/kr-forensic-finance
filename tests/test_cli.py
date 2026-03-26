@@ -59,7 +59,7 @@ def test_cli_report_missing_corp_code():
 
 def test_cli_status_no_data(tmp_path, monkeypatch):
     """status exits 0 and shows 0/11 when processed dir is empty."""
-    import src.status as st
+    import krff.status as st
 
     processed = tmp_path / "processed"
     processed.mkdir()
@@ -74,7 +74,7 @@ def test_cli_status_no_data(tmp_path, monkeypatch):
 def test_cli_status_with_some_data(tmp_path, monkeypatch):
     """status shows correct counts when some parquets exist."""
     import pandas as pd
-    import src.status as st
+    import krff.status as st
 
     processed = tmp_path / "processed"
     processed.mkdir()
@@ -93,7 +93,7 @@ def test_cli_status_with_some_data(tmp_path, monkeypatch):
 def test_cli_status_verbose_with_run_summary(tmp_path, monkeypatch):
     """--verbose shows DART run summary when run_summary.json exists."""
     import json
-    import src.status as st
+    import krff.status as st
 
     processed = tmp_path / "processed"
     processed.mkdir()
@@ -120,7 +120,7 @@ def test_cli_status_verbose_with_run_summary(tmp_path, monkeypatch):
 
 def test_cli_status_verbose_no_run_summary(tmp_path, monkeypatch):
     """--verbose exits 0 even when run_summary.json does not exist."""
-    import src.status as st
+    import krff.status as st
 
     processed = tmp_path / "processed"
     processed.mkdir()
@@ -168,7 +168,7 @@ def test_refresh_invalid_sample():
 
 def test_quality_runs(tmp_path, monkeypatch):
     """krff quality exits 0 when processed dir is empty (no parquets)."""
-    import src.quality as sq
+    import krff.quality as sq
 
     processed = tmp_path / "processed"
     processed.mkdir()
@@ -190,7 +190,7 @@ def test_charts_missing_parquet(tmp_path):
 
 def test_refresh_skips_beneish_when_sample_active(monkeypatch):
     """KI-026: krff refresh --sample N must not invoke beneish_screen.py (Stage 3)."""
-    import src.pipeline as sp
+    import krff.pipeline as sp
 
     monkeypatch.setattr(sp, "run_pipeline", lambda **kw: None)
 
@@ -202,7 +202,7 @@ def test_refresh_skips_beneish_when_sample_active(monkeypatch):
 
 def test_cli_report_smoke(tmp_path, monkeypatch):
     """With monkeypatched generate_report and --skip-claude, prints 'Wrote' and exits 0."""
-    import src.report as rpt
+    import krff.report as rpt
 
     def fake_generate_report(corp_code, output_path=None, skip_claude=False):
         if output_path is not None:
@@ -261,7 +261,7 @@ def test_run_invalid_backend():
 
 def test_run_valid_backends_accepted(monkeypatch):
     """krff run --backend fdr/yfinance are accepted (pipeline call is mocked)."""
-    import src.pipeline as sp
+    import krff.pipeline as sp
     monkeypatch.setattr(sp, "run_pipeline", lambda **kw: None)
 
     for backend in ("fdr", "yfinance", "pykrx"):

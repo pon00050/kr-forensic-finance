@@ -1,7 +1,7 @@
 """src/status.py -- pipeline artifact inventory.
 
 Usage:
-    from src.status import get_status, format_status
+    from krff.status import get_status, format_status
     print(format_status(get_status()))
     print(format_status(get_status(), verbose=True))
 """
@@ -12,7 +12,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src._paths import PROJECT_ROOT as _PROJECT_ROOT, PROCESSED_DIR as _PROCESSED
+from krff._paths import PROJECT_ROOT as _PROJECT_ROOT, PROCESSED_DIR as _PROCESSED
 
 _RUN_SUMMARY = _PROJECT_ROOT / "01_Data" / "raw" / "run_summary.json"
 

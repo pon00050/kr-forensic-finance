@@ -4,7 +4,7 @@ Tier 1 analytics layer: fresh in-memory DuckDB connection per query.
 No persistent .duckdb file — reads parquet in-place.
 
 Usage:
-    from src.db import query, read_table
+    from krff.db import query, read_table
     df = read_table("beneish_scores", corp_code="01051092")
     df = query("SELECT * FROM read_parquet(?) WHERE year >= ?", [path, 2021])
 """
@@ -18,7 +18,7 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-from src._paths import PROCESSED_DIR
+from krff._paths import PROCESSED_DIR
 
 log = logging.getLogger(__name__)
 

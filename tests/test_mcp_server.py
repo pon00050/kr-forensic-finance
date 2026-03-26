@@ -17,9 +17,9 @@ import pytest
 pytest.importorskip("fastmcp", reason="fastmcp not installed — run: uv sync")
 
 from fastmcp.client import Client  # noqa: E402
-from src.mcp_server import mcp_server  # noqa: E402
-from src.db import parquet_path  # noqa: E402
-from src.data_access import _JFIA_CATALOG_PATH  # noqa: E402
+from krff.mcp_server import mcp_server  # noqa: E402
+from krff.db import parquet_path  # noqa: E402
+from krff.data_access import _JFIA_CATALOG_PATH  # noqa: E402
 
 # ── Data availability flags ───────────────────────────────────────────────────
 _HAS_CORP_MAP = parquet_path("corp_ticker_map").exists()
@@ -156,7 +156,7 @@ async def test_get_price_volume_pagination_envelope(mcp_client):
 
 async def test_search_jfia_literature_no_catalog_graceful(mcp_client, monkeypatch):
     """If JFIA catalog is absent, tool returns empty list (not an error)."""
-    import src.data_access as da
+    import krff.data_access as da
     monkeypatch.setattr(da, "_jfia_loaded", False)
     monkeypatch.setattr(da, "_JFIA_CATALOG_SINGLETON", None)
     monkeypatch.setattr(da, "_JFIA_CATALOG_PATH", Path("/nonexistent/jfia_catalog.json"))

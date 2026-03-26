@@ -7,7 +7,7 @@
     "kr-financial-statements-local": {
       "type": "stdio",
       "command": "uv",
-      "args": ["run", "python", "-c", "from src.mcp_server import mcp_server; mcp_server.run(transport='stdio')"],
+      "args": ["run", "python", "-c", "from krff.mcp_server import mcp_server; mcp_server.run(transport='stdio')"],
       "env": {
         "PYTHONPATH": "."
       }

@@ -29,7 +29,7 @@ ANALYSIS = ROOT / "03_Analysis"
 # Minimum anomaly_score for a CB/BW event to mark its company as "flagged".
 # Raised to 2 (session 33): holdings_flag now operational; 27 events at flag_count=2
 # across 23 companies without SEIBRO. Multi-flag events exist — threshold now meaningful.
-from src.constants import OFFICER_FLAG_THRESHOLD as FLAG_THRESHOLD
+from krff.constants import OFFICER_FLAG_THRESHOLD as FLAG_THRESHOLD
 
 try:
     from pyvis.network import Network as PyvisNetwork

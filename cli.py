@@ -75,11 +75,11 @@ def run(
         raise typer.BadParameter(f"top_n must be >= 1, got {top_n}", param_hint="'--top-n'")
     if wics_date is not None and (len(wics_date) != 8 or not wics_date.isdigit()):
         raise typer.BadParameter(f"wics_date must be 8 digits (YYYYMMDD), got {wics_date!r}", param_hint="'--wics-date'")
-    from src.constants import VALID_OHLCV_BACKENDS as _valid_backends
+    from krff.constants import VALID_OHLCV_BACKENDS as _valid_backends
     if backend not in _valid_backends:
         raise typer.BadParameter(f"backend must be one of {_valid_backends}, got {backend!r}", param_hint="'--backend'")
 
-    from src.pipeline import run_pipeline
+    from krff.pipeline import run_pipeline
 
     try:
         run_pipeline(
@@ -107,7 +107,7 @@ def analyze(
     parquet: Optional[Path] = typer.Option(None, help="Path to beneish_scores.parquet"),
 ) -> None:
     """Load beneish_scores.parquet and print a summary."""
-    from src.analysis import run_beneish_screen
+    from krff.analysis import run_beneish_screen
 
     path = parquet or _DEFAULT_PARQUET
     if not path.exists():
@@ -129,8 +129,8 @@ def charts(
     output_dir: Optional[Path] = typer.Option(None, help="Directory for beneish_viz.html (default: 03_Analysis/)"),
 ) -> None:
     """Generate beneish_viz.html from beneish_scores.parquet."""
-    from src.analysis import run_beneish_screen
-    from src.charts import generate_charts
+    from krff.analysis import run_beneish_screen
+    from krff.charts import generate_charts
 
     path = parquet or _DEFAULT_PARQUET
     if not path.exists():
@@ -160,7 +160,7 @@ def report(
         raise typer.BadParameter(f"corp_code must be 1–8 digits, got {corp_code!r}")
     corp_code = corp_code.zfill(8)
 
-    from src.report import generate_report
+    from krff.report import generate_report
 
     try:
         out_path = (output_dir or (_ANALYSIS_DIR / "reports")) / f"{corp_code}_report.html"
@@ -173,7 +173,7 @@ def report(
 
     # Auto-queue for human review after successful generation
     try:
-        from src.review import queue_add
+        from krff.review import queue_add
         # Look up corp_name from corp_ticker_map if available
         corp_name = ""
         cmap = _ANALYSIS_DIR.parent / "01_Data" / "processed" / "corp_ticker_map.parquet"
@@ -194,7 +194,7 @@ def status(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Include DART run summary details"),
 ) -> None:
     """Show pipeline data status: which artifacts exist, row counts, and sizes."""
-    from src.status import get_status, format_status
+    from krff.status import get_status, format_status
 
     typer.echo(format_status(get_status(), verbose=verbose))
 
@@ -204,7 +204,7 @@ def quality(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show per-column null breakdown"),
 ) -> None:
     """Show data quality metrics: null rates, coverage gaps, and stat test output status."""
-    from src.quality import get_quality, format_quality
+    from krff.quality import get_quality, format_quality
 
     try:
         typer.echo(format_quality(get_quality(), verbose=verbose))
@@ -218,7 +218,7 @@ def audit(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show all input file mtimes"),
 ) -> None:
     """Check pipeline data freshness. Flags stale outputs and recommends reruns."""
-    from src.audit import get_audit, format_audit
+    from krff.audit import get_audit, format_audit
 
     result = get_audit()
     typer.echo(format_audit(result, verbose=verbose))
@@ -245,7 +245,7 @@ def stats(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show input paths for stale tests"),
 ) -> None:
     """Run stale statistical tests in topological order."""
-    from src.stats_runner import get_stats_audit, format_stats_audit, STATS_DAG, _DAG_BY_NAME
+    from krff.stats_runner import get_stats_audit, format_stats_audit, STATS_DAG, _DAG_BY_NAME
 
     root = Path(__file__).parent
     result = get_stats_audit(root)
@@ -312,14 +312,14 @@ def refresh(
     --sample is for API quota smoke-testing only; production scoring requires full output.
     """
     _require_positive_sample(sample)
-    from src.constants import VALID_OHLCV_BACKENDS as _valid_backends
+    from krff.constants import VALID_OHLCV_BACKENDS as _valid_backends
     if backend not in _valid_backends:
         raise typer.BadParameter(f"backend must be one of {_valid_backends}, got {backend!r}", param_hint="'--backend'")
 
     root = Path(__file__).parent
     analysis = root / "03_Analysis"
 
-    from src.pipeline import run_pipeline
+    from krff.pipeline import run_pipeline
 
     # Stage 1 — DART extraction
     typer.echo("\n--- Stage 1: DART extraction ---")
@@ -403,7 +403,7 @@ def queue(
     status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter: pending | reviewed"),
 ) -> None:
     """Show the report review queue."""
-    from src.review import list_queue, get_counts
+    from krff.review import list_queue, get_counts
 
     counts = get_counts()
     typer.echo(
@@ -452,7 +452,7 @@ def surface(
     if tier not in ("free", "paid"):
         raise typer.BadParameter(f"tier must be 'free' or 'paid', got {tier!r}", param_hint="'--tier'")
 
-    from src.review import surface as _surface
+    from krff.review import surface as _surface
     try:
         updated = _surface(corp_code, tier, assessment=assessment, notes=notes)
     except ValueError as exc:
@@ -484,7 +484,7 @@ def hide(
     """Mark a report as reviewed but hidden (will not be served on any tier)."""
     corp_code = corp_code.strip().zfill(8)
 
-    from src.review import hide as _hide
+    from krff.review import hide as _hide
     try:
         updated = _hide(corp_code, assessment=assessment, notes=notes)
     except ValueError as exc:
@@ -516,7 +516,7 @@ def assess_cmd(
     """Record a methodology verdict without changing visibility."""
     corp_code = corp_code.strip().zfill(8)
 
-    from src.review import assess as _assess
+    from krff.review import assess as _assess
     try:
         updated = _assess(corp_code, assessment, notes=notes)
     except ValueError as exc:
@@ -559,7 +559,7 @@ def requeue(
 ) -> None:
     """Reset a reviewed-hidden report back to pending for re-review."""
     corp_code = corp_code.strip().zfill(8)
-    from src.review import queue_add
+    from krff.review import queue_add
 
     queue_add(corp_code, force=True)
     typer.echo(f"Reset {corp_code} to pending. Run 'krff queue' to confirm.")
@@ -571,7 +571,7 @@ def seed_queue_cmd(
 ) -> None:
     """Pre-populate the review queue with all companies from corp_ticker_map.parquet."""
     import pandas as pd
-    from src.review import seed_queue
+    from krff.review import seed_queue
 
     cmap_path = _ANALYSIS_DIR.parent / "01_Data" / "processed" / "corp_ticker_map.parquet"
     if not cmap_path.exists():
@@ -603,9 +603,9 @@ def batch_report(
 
     import pandas as pd
 
-    from src.constants import BENEISH_THRESHOLD
-    from src.report import generate_report
-    from src.review import list_queue, queue_add
+    from krff.constants import BENEISH_THRESHOLD
+    from krff.report import generate_report
+    from krff.review import list_queue, queue_add
 
     if not _DEFAULT_PARQUET.exists():
         typer.echo(f"Error: {_DEFAULT_PARQUET} not found. Run 'krff run' first.", err=True)
