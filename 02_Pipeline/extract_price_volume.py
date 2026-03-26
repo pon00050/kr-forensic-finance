@@ -204,7 +204,7 @@ def fetch_price_volume(
             log.debug("No ticker for corp_code=%s, skipping", corp_code)
             continue
 
-        from krff.trading_calendar import trading_day_offset
+        from kr_trading_calendar import trading_day_offset
         start_dt = trading_day_offset(issue_dt, -WINDOW_TRADING_DAYS).strftime("%Y%m%d")
         end_dt   = trading_day_offset(issue_dt, +WINDOW_TRADING_DAYS).strftime("%Y%m%d")
 

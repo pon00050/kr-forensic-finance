@@ -1630,6 +1630,7 @@ dependencies = [
     { name = "holidays" },
     { name = "jinja2" },
     { name = "kaleido" },
+    { name = "kr-trading-calendar" },
     { name = "lifelines" },
     { name = "lxml" },
     { name = "marimo" },
@@ -1676,6 +1677,7 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.24.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "kaleido", specifier = ">=0.2.1" },
+    { name = "kr-trading-calendar", directory = "../kr-trading-calendar" },
     { name = "lifelines", specifier = ">=0.29.0" },
     { name = "lxml" },
     { name = "marimo" },
@@ -1700,6 +1702,23 @@ requires-dist = [
     { name = "yfinance", marker = "extra == 'hosted'" },
 ]
 provides-extras = ["dev", "hosted"]
+
+[[package]]
+name = "kr-trading-calendar"
+version = "0.1.0"
+source = { directory = "../kr-trading-calendar" }
+dependencies = [
+    { name = "exchange-calendars" },
+    { name = "pandas" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "exchange-calendars", specifier = ">=4.13.2" },
+    { name = "pandas" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "lifelines"

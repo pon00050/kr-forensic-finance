@@ -45,6 +45,7 @@ dependencies = [
     "fastmcp>=3.1.0",
     "exchange-calendars>=4.13.2",
     "holidays>=0.92",
+    "kr-trading-calendar",
 ]
 
 [project.scripts]
@@ -74,6 +75,9 @@ hosted = [
 
 [tool.uv]
 compile-bytecode = false
+
+[tool.uv.sources]
+kr-trading-calendar = { path = "../kr-trading-calendar" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

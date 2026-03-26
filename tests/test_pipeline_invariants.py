@@ -3988,46 +3988,46 @@ class TestKoreanTradingCalendar:
 
     def test_is_trading_day_known_session(self):
         """2021-01-08 (Friday, no holiday) is a KRX trading session."""
-        from krff.trading_calendar import is_trading_day
+        from kr_trading_calendar import is_trading_day
         assert is_trading_day("2021-01-08") is True
 
     def test_is_trading_day_new_year(self):
         """2021-01-01 (신정) is NOT a trading session."""
-        from krff.trading_calendar import is_trading_day
+        from kr_trading_calendar import is_trading_day
         assert is_trading_day("2021-01-01") is False
 
     def test_is_trading_day_seollal(self):
         """2021-02-12 (설날) is NOT a trading session."""
-        from krff.trading_calendar import is_trading_day
+        from kr_trading_calendar import is_trading_day
         assert is_trading_day("2021-02-12") is False
 
     def test_is_trading_day_seollal_eve(self):
         """2021-02-11 (설날 연휴 시작) is NOT a trading session."""
-        from krff.trading_calendar import is_trading_day
+        from kr_trading_calendar import is_trading_day
         assert is_trading_day("2021-02-11") is False
 
     def test_is_trading_day_chuseok(self):
         """2020-10-01 (추석) is NOT a trading session."""
-        from krff.trading_calendar import is_trading_day
+        from kr_trading_calendar import is_trading_day
         assert is_trading_day("2020-10-01") is False
 
     def test_trading_day_offset_backward(self):
         """60 trading days before 2021-02-15 should be 2020-11-16."""
-        from krff.trading_calendar import trading_day_offset
+        from kr_trading_calendar import trading_day_offset
         import pandas as pd
         result = trading_day_offset("2021-02-15", -60)
         assert result == pd.Timestamp("2020-11-16")
 
     def test_trading_day_offset_forward(self):
         """60 trading days after 2021-02-15 should be 2021-05-12."""
-        from krff.trading_calendar import trading_day_offset
+        from kr_trading_calendar import trading_day_offset
         import pandas as pd
         result = trading_day_offset("2021-02-15", 60)
         assert result == pd.Timestamp("2021-05-12")
 
     def test_trading_day_window_gives_121_sessions(self):
         """True ±60 trading-day window around 2021-02-15 must contain 121 sessions."""
-        from krff.trading_calendar import trading_day_offset, trading_days_in_range
+        from kr_trading_calendar import trading_day_offset, trading_days_in_range
         start = trading_day_offset("2021-02-15", -60)
         end = trading_day_offset("2021-02-15", 60)
         sessions = trading_days_in_range(start, end)
@@ -4039,7 +4039,7 @@ class TestKoreanTradingCalendar:
         This test is intentionally asymmetric — it asserts the OLD behaviour was wrong,
         so that future readers understand what was fixed.
         """
-        from krff.trading_calendar import trading_days_in_range
+        from kr_trading_calendar import trading_days_in_range
         import pandas as pd
         # Old extraction: issue_dt - timedelta(60) to issue_dt
         old_start = pd.Timestamp("2020-12-17")   # 2021-02-15 - 60 calendar days
@@ -4050,7 +4050,7 @@ class TestKoreanTradingCalendar:
 
     def test_trading_days_in_range_basic(self):
         """trading_days_in_range returns a non-empty DatetimeIndex for a valid range."""
-        from krff.trading_calendar import trading_days_in_range
+        from kr_trading_calendar import trading_days_in_range
         sessions = trading_days_in_range("2021-01-04", "2021-01-08")
         assert len(sessions) == 5  # Mon-Fri, no holidays that week
 
