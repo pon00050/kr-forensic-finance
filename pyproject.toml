@@ -1,5 +1,5 @@
 [project]
-name = "kr-forensic-finance"
+name = "krff-shell"
 version = "1.5.0"
 requires-python = ">=3.11"
 description = "Public infrastructure for systematic anomaly screening across Korean listed companies"
