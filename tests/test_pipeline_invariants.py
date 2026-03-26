@@ -1590,9 +1590,10 @@ class TestOfficerFlagThreshold:
 
     def test_flag_threshold_constant_is_two(self):
         import ast
+        import kr_forensic_core
+        # Constant now lives in kr-forensic-core; parse it from there
         src_path = (
-            pathlib.Path(__file__).resolve().parents[1]
-            / "krff"
+            pathlib.Path(kr_forensic_core.__file__).resolve().parent
             / "constants.py"
         )
         assert src_path.exists(), f"constants.py not found at {src_path}"
@@ -1612,7 +1613,7 @@ class TestOfficerFlagThreshold:
                         )
                         return
         raise AssertionError(
-            "OFFICER_FLAG_THRESHOLD constant not found in src/constants.py"
+            "OFFICER_FLAG_THRESHOLD constant not found in kr_forensic_core/constants.py"
         )
 
 

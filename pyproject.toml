@@ -46,6 +46,7 @@ dependencies = [
     "exchange-calendars>=4.13.2",
     "holidays>=0.92",
     "kr-trading-calendar",
+    "kr-forensic-core",
 ]
 
 [project.scripts]
@@ -78,6 +79,7 @@ compile-bytecode = false
 
 [tool.uv.sources]
 kr-trading-calendar = { path = "../kr-trading-calendar" }
+kr-forensic-core = { path = "../kr-forensic-core" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
