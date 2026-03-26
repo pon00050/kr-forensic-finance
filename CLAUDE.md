@@ -40,7 +40,7 @@ krff audit --verbose
 
 ---
 
-## `src/` Module Map
+## `krff/` Module Map
 
 | Module | Purpose |
 |--------|---------|
@@ -49,8 +49,6 @@ krff audit --verbose
 | `db.py` | In-memory DuckDB over parquet files; `query()`, `read_table()` — no persistent `.duckdb` file |
 | `data_access.py` | `load_parquet()`, `load_csv()`, `load_company_name()` — reusable loaders extracted from `report.py` |
 | `models.py` | Pydantic models documenting dict-returning function contracts; not yet enforced at runtime |
-| `trading_calendar.py` | KRX trading-day logic via `exchange_calendars` (XKRX); `trading_day_offset()`, `is_trading_day()` |
-| `coverage_index.py` | Coverage adequacy computations (used by health monitor, not forensic pipeline) |
 | `audit.py` | DAG-based freshness checker; `get_audit()` → used by `krff audit` |
 | `stats_runner.py` | 14-node stats DAG; `get_stats_audit()` → used by `krff stats` |
 | `analysis.py` | Thin wrapper: loads `beneish_scores.parquet` for `krff analyze` |
@@ -70,7 +68,7 @@ krff audit --verbose
 | Gap | Why | Status |
 |-----|-----|--------|
 | Phase 3 stubs (`monitor/dart_rss.py`, `cli.py monitor/alerts`, `app.py alerts/monitor`) | Phase 3 not started | Deferred — Phase 3 |
-| Pydantic models in `src/models.py` not enforced at runtime | Functions return raw dicts; FastAPI validates at serialization boundary only | Deferred — Phase 3 |
+| Pydantic models in `krff/models.py` not enforced at runtime | Functions return raw dicts; FastAPI validates at serialization boundary only | Deferred — Phase 3 |
 | `extract_bondholder_register.py:91` — pagination missing | Only fetches first page of CB filings (>100 not handled) | Unblocked — low priority |
 | 3 standalone extractors not wired into `pipeline.py` | `extract_bondholder_register`, `extract_depreciation_schedule`, `extract_revenue_schedule` produce parquets but can't be triggered via `krff refresh` | By design — standalone scripts |
 | WICS sector data has no historical snapshots (`extract_dart.py:157`) | WICS serves recent dates only; joins to historical financials use current sector | By design — upstream limitation |
@@ -82,12 +80,12 @@ krff audit --verbose
 Two separate entry points both read from the same parquet layer:
 
 ```
-02_Pipeline/pipeline.py  →  01_Data/processed/*.parquet  ←  src/db.py
-                                                          ←  src/data_access.py
+02_Pipeline/pipeline.py  →  01_Data/processed/*.parquet  ←  krff/db.py
+                                                          ←  krff/data_access.py
 03_Analysis/run_*.py     →  03_Analysis/*.csv
 
-app.py (FastAPI)  →  src/mcp_server.py  →  10 tools over parquets + CSVs
-cli.py (krff)     →  src/* thin wrappers
+app.py (FastAPI)  →  krff/mcp_server.py  →  10 tools over parquets + CSVs
+cli.py (krff)     →  krff/* thin wrappers
 ```
 
-`src/db.py` is the canonical query layer. Do not read parquets directly with `pd.read_parquet` in new code — use `db.read_table()` or `data_access.load_parquet()` so path resolution and DuckDB registration are consistent.
+`krff/db.py` is the canonical query layer. Do not read parquets directly with `pd.read_parquet` in new code — use `db.read_table()` or `data_access.load_parquet()` so path resolution and DuckDB registration are consistent.

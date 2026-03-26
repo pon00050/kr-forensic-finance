@@ -1,8 +1,10 @@
-# kr-forensic-finance
+# krff-shell
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
-![Tests](https://github.com/pon00050/kr-forensic-finance/actions/workflows/test.yml/badge.svg)
+![Tests](https://github.com/pon00050/krff-shell/actions/workflows/test.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-green)
+
+> Previously known as **kr-forensic-finance**. Split into kr-dart-pipeline, kr-anomaly-scoring, kr-stat-tests, kr-forensic-core, and krff-shell in March 2026.
 
 Public infrastructure for systematic anomaly screening across Korean listed companies — built entirely on open data.
 
@@ -41,16 +43,16 @@ This project builds that infrastructure layer — so that researchers, journalis
 | `revenue_schedule.parquet` | `01_Data/processed/` | Revenue by customer/segment from 매출명세서 in 사업보고서 | 매출명세서 — 고객·품목별 매출 |
 | `bond_isin_map.parquet` | `01_Data/processed/` | 1,859 CB/BW ISINs mapped to 656 corp_codes via FSC API | FSC API로 수집한 CB/BW ISIN 1,859건 — 656개사 연결 |
 | `dart_xbrl_crosswalk.csv` | `tests/fixtures/` | XBRL element → variable mapping; audit trail | XBRL 요소 → 재무 변수 매핑; 감사 추적 |
-| [`beneish_viz.html` ↗](https://raw.githack.com/pon00050/kr-forensic-finance/master/03_Analysis/beneish_viz.html) | `03_Analysis/` | Self-contained visual summary of Phase 1 results (5 Plotly charts) | Phase 1 결과 시각적 요약 — 5개 Plotly 차트, 단독 실행 가능 HTML |
+| [`beneish_viz.html` ↗](https://raw.githack.com/pon00050/krff-shell/master/03_Analysis/beneish_viz.html) | `03_Analysis/` | Self-contained visual summary of Phase 1 results (5 Plotly charts) | Phase 1 결과 시각적 요약 — 5개 Plotly 차트, 단독 실행 가능 HTML |
 | `<corp_code>_report.html` | `03_Analysis/reports/` | Per-company forensic HTML report (all 4 milestones + AI synthesis) | 기업별 포렌식 HTML 보고서 |
 
-**Visual summary (no Python required):** [beneish_viz.html — Phase 1 결과 보기](https://raw.githack.com/pon00050/kr-forensic-finance/master/03_Analysis/beneish_viz.html) — interactive Plotly charts, no Python required. / Python 없이 바로 보기.
+**Visual summary (no Python required):** [beneish_viz.html — Phase 1 결과 보기](https://raw.githack.com/pon00050/krff-shell/master/03_Analysis/beneish_viz.html) — interactive Plotly charts, no Python required. / Python 없이 바로 보기.
 
 ## Quickstart / 빠르게 시작하기
 
 ```bash
-git clone https://github.com/pon00050/kr-forensic-finance
-cd kr-forensic-finance
+git clone https://github.com/pon00050/krff-shell
+cd krff-shell
 uv sync                        # production dependencies
 uv sync --extra dev            # + dev/test dependencies (needed to run tests)
 cp .env.example .env           # add DART API key / DART API 키 입력 (free / 무료: opendart.fss.or.kr)
@@ -197,7 +199,7 @@ traditional Excel/DART workflow vs. MCP for a realistic analyst screening task (
 ### Folder Structure
 
 ```
-kr-forensic-finance/
+krff-shell/
 ├── README.md
 ├── CONTRIBUTING.md
 ├── ROADMAP.md
@@ -243,7 +245,7 @@ kr-forensic-finance/
 │   ├── officer_network/           Output: centrality_report.csv
 │   ├── reports/                   Generated per-company HTML reports (gitignored)
 │   └── company_dives/             Per-company forensic scripts (local only, not committed)
-├── src/
+├── krff/
 │   ├── __init__.py
 │   ├── _paths.py                  Centralized path constants
 │   ├── analysis.py                Beneish screen wrapper
@@ -311,11 +313,11 @@ All three support `--force`, `--sample N`, `--sleep S`, `--max-minutes M`. HTML 
 ### Testing
 
 ```bash
-uv run python -m pytest tests/ -v                                               # 301 tests
+uv run python -m pytest tests/ -v                                               # 317 tests
 uv run python -m pytest tests/test_pipeline_invariants.py tests/test_e2e_synthetic.py -v  # no pipeline data needed
 ```
 
-Data-dependent tests auto-skip on CI (no parquets present); all 301 tests run locally after a full pipeline run.
+Data-dependent tests auto-skip on CI (no parquets present); all 317 tests run locally after a full pipeline run.
 
 ### Output Schemas
 
