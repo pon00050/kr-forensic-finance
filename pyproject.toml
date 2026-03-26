@@ -53,8 +53,8 @@ dependencies = [
 krff = "cli:app"
 
 [project.urls]
-Repository = "https://github.com/pon00050/kr-forensic-finance"
-Issues = "https://github.com/pon00050/kr-forensic-finance/issues"
+Repository = "https://github.com/pon00050/krff-shell"
+Issues = "https://github.com/pon00050/krff-shell/issues"
 
 [build-system]
 requires = ["hatchling"]

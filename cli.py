@@ -1,4 +1,4 @@
-"""kr-forensic-finance CLI — entry point for the `krff` command.
+"""krff-shell CLI — entry point for the `krff` command.
 
 Usage:
   krff run [OPTIONS]     Run the ETL pipeline
