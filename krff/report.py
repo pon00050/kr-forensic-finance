@@ -27,8 +27,8 @@ from krff import data_access as _da
 
 _REPORTS_DIR = _PROJECT_ROOT / "03_Analysis" / "reports"
 
-_FORBIDDEN_MODEL  = "claude-opus-4-6"
-_SYNTHESIS_MODEL  = "claude-sonnet-4-6"
+from kr_forensic_core.constants import SONNET_MODEL as _SYNTHESIS_MODEL
+_FORBIDDEN_MODEL = "claude-opus-4-6"  # runtime guard — never allowed regardless of env
 _BENEISH_COMPONENTS = ["dsri", "gmi", "aqi", "sgi", "depi", "sgai", "lvgi", "tata"]
 _RISK_TIER_ORDER  = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1}
 

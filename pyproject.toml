@@ -78,11 +78,11 @@ hosted = [
 compile-bytecode = false
 
 [tool.uv.sources]
-kr-trading-calendar = { path = "../kr-trading-calendar" }
-kr-forensic-core = { path = "../kr-forensic-core" }
-kr-dart-pipeline = { path = "../kr-dart-pipeline" }
-kr-anomaly-scoring = { path = "../kr-anomaly-scoring" }
-kr-stat-tests = { path = "../kr-stat-tests" }
+kr-trading-calendar = { path = "../kr-trading-calendar", editable = true }
+kr-forensic-core = { path = "../kr-forensic-core", editable = true }
+kr-dart-pipeline = { path = "../kr-dart-pipeline", editable = true }
+kr-anomaly-scoring = { path = "../kr-anomaly-scoring", editable = true }
+kr-stat-tests = { path = "../kr-stat-tests", editable = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1616,7 +1616,125 @@ wheels = [
 ]
 
 [[package]]
-name = "kr-forensic-finance"
+name = "kr-anomaly-scoring"
+version = "1.0.0"
+source = { editable = "../kr-anomaly-scoring" }
+dependencies = [
+    { name = "kr-forensic-core" },
+    { name = "networkx" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "kr-forensic-core", editable = "../kr-forensic-core" },
+    { name = "marimo", marker = "extra == 'marimo'" },
+    { name = "networkx", specifier = ">=3.0" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "plotly", marker = "extra == 'marimo'" },
+    { name = "pyarrow" },
+]
+provides-extras = ["marimo"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
+
+[[package]]
+name = "kr-dart-pipeline"
+version = "1.0.0"
+source = { editable = "../kr-dart-pipeline" }
+dependencies = [
+    { name = "kr-forensic-core" },
+    { name = "kr-trading-calendar" },
+    { name = "lxml" },
+    { name = "opendartreader" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+    { name = "pykrx" },
+    { name = "python-dotenv" },
+    { name = "requests" },
+    { name = "tqdm" },
+    { name = "typer" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "kr-forensic-core", editable = "../kr-forensic-core" },
+    { name = "kr-trading-calendar", editable = "../kr-trading-calendar" },
+    { name = "lxml" },
+    { name = "opendartreader" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+    { name = "pykrx", specifier = ">=1.2.0" },
+    { name = "python-dotenv" },
+    { name = "requests" },
+    { name = "tqdm" },
+    { name = "typer", specifier = ">=0.9.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
+
+[[package]]
+name = "kr-forensic-core"
+version = "1.0.0"
+source = { editable = "../kr-forensic-core" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
+
+[[package]]
+name = "kr-stat-tests"
+version = "1.0.0"
+source = { editable = "../kr-stat-tests" }
+dependencies = [
+    { name = "kr-forensic-core" },
+    { name = "lifelines" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+    { name = "scikit-learn" },
+    { name = "statsmodels" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "kr-forensic-core", editable = "../kr-forensic-core" },
+    { name = "lifelines", specifier = ">=0.29.0" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+    { name = "scikit-learn", specifier = ">=1.4.0" },
+    { name = "statsmodels", specifier = ">=0.14.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
+
+[[package]]
+name = "kr-trading-calendar"
+version = "0.1.0"
+source = { editable = "../kr-trading-calendar" }
+dependencies = [
+    { name = "exchange-calendars" },
+    { name = "pandas" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "exchange-calendars", specifier = ">=4.13.2" },
+    { name = "pandas" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "krff-shell"
 version = "1.5.0"
 source = { editable = "." }
 dependencies = [
@@ -1630,8 +1748,11 @@ dependencies = [
     { name = "holidays" },
     { name = "jinja2" },
     { name = "kaleido" },
+    { name = "kr-anomaly-scoring" },
+    { name = "kr-dart-pipeline" },
+    { name = "kr-forensic-core" },
+    { name = "kr-stat-tests" },
     { name = "kr-trading-calendar" },
-    { name = "lifelines" },
     { name = "lxml" },
     { name = "marimo" },
     { name = "networkx" },
@@ -1644,9 +1765,7 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "s3fs" },
-    { name = "scikit-learn" },
     { name = "setuptools" },
-    { name = "statsmodels" },
     { name = "tqdm" },
     { name = "typer" },
     { name = "uvicorn", extra = ["standard"] },
@@ -1677,8 +1796,11 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.24.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "kaleido", specifier = ">=0.2.1" },
-    { name = "kr-trading-calendar", directory = "../kr-trading-calendar" },
-    { name = "lifelines", specifier = ">=0.29.0" },
+    { name = "kr-anomaly-scoring", editable = "../kr-anomaly-scoring" },
+    { name = "kr-dart-pipeline", editable = "../kr-dart-pipeline" },
+    { name = "kr-forensic-core", editable = "../kr-forensic-core" },
+    { name = "kr-stat-tests", editable = "../kr-stat-tests" },
+    { name = "kr-trading-calendar", editable = "../kr-trading-calendar" },
     { name = "lxml" },
     { name = "marimo" },
     { name = "networkx", specifier = ">=3.0" },
@@ -1693,32 +1815,13 @@ requires-dist = [
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "s3fs", specifier = ">=2024.1.0" },
-    { name = "scikit-learn", specifier = ">=1.4.0" },
     { name = "setuptools", specifier = "<82" },
-    { name = "statsmodels", specifier = ">=0.14.0" },
     { name = "tqdm" },
     { name = "typer", specifier = ">=0.9.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
     { name = "yfinance", marker = "extra == 'hosted'" },
 ]
 provides-extras = ["dev", "hosted"]
-
-[[package]]
-name = "kr-trading-calendar"
-version = "0.1.0"
-source = { directory = "../kr-trading-calendar" }
-dependencies = [
-    { name = "exchange-calendars" },
-    { name = "pandas" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "exchange-calendars", specifier = ">=4.13.2" },
-    { name = "pandas" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "lifelines"

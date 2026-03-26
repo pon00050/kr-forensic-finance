@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -28,10 +29,9 @@ TIMING_CSV = ANALYSIS_DIR / "timing_anomalies.csv"
 NETWORK_CSV = ANALYSIS_DIR / "officer_network" / "centrality_report.csv"
 
 # JFIA catalog — sourced from sibling jfia-forensic project (gitignored raw data)
-# Falls back to checking directly under PROJECT_ROOT if the sibling path is absent
-_JFIA_CATALOG_PATH: Path = (
-    PROJECT_ROOT.parent / "jfia-forensic" / "data" / "raw" / "jfia_catalog.json"
-)
+# Override JFIA_CATALOG_PATH env var to point to the file in non-standard layouts
+_DEFAULT_JFIA_PATH = PROJECT_ROOT.parent / "jfia-forensic" / "data" / "raw" / "jfia_catalog.json"
+_JFIA_CATALOG_PATH: Path = Path(os.environ.get("JFIA_CATALOG_PATH", str(_DEFAULT_JFIA_PATH)))
 
 
 def load_parquet(
