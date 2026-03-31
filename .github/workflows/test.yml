@@ -11,23 +11,29 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: pon00050/kr-trading-calendar
-          path: ../kr-trading-calendar
+          path: _deps/kr-trading-calendar
       - uses: actions/checkout@v4
         with:
           repository: pon00050/kr-forensic-core
-          path: ../kr-forensic-core
+          path: _deps/kr-forensic-core
       - uses: actions/checkout@v4
         with:
           repository: pon00050/kr-dart-pipeline
-          path: ../kr-dart-pipeline
+          path: _deps/kr-dart-pipeline
       - uses: actions/checkout@v4
         with:
           repository: pon00050/kr-anomaly-scoring
-          path: ../kr-anomaly-scoring
+          path: _deps/kr-anomaly-scoring
       - uses: actions/checkout@v4
         with:
           repository: pon00050/kr-stat-tests
-          path: ../kr-stat-tests
+          path: _deps/kr-stat-tests
+      - name: Symlink sibling packages to expected relative paths
+        run: |
+          parent=$(dirname "$GITHUB_WORKSPACE")
+          for repo in kr-trading-calendar kr-forensic-core kr-dart-pipeline kr-anomaly-scoring kr-stat-tests; do
+            ln -s "$GITHUB_WORKSPACE/_deps/$repo" "$parent/$repo"
+          done
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
