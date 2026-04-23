@@ -1,5 +1,7 @@
 # krff-shell
 
+**[Read the full write-up →](https://ronanwrites.vercel.app/manuals/krff-shell-mcp-natural-language-finance)**
+
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![Tests](https://github.com/pon00050/krff-shell/actions/workflows/test.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -163,7 +165,7 @@ Swagger UI at `/docs`. Web routes at `/`, `/demo`, `/about`, `/datasets`, `/cont
 
 **MCP Server (`http://localhost:8000/mcp/`):**
 
-10 tools are available to any MCP-compatible client (Claude Code, Claude Desktop, etc.):
+11 tools are available to any MCP-compatible client (Claude Code, Claude Desktop, etc.):
 
 | Tool | Description |
 |---|---|
@@ -177,6 +179,7 @@ Swagger UI at `/docs`. Web routes at `/`, `/demo`, `/about`, `/datasets`, `/cont
 | `get_major_holders` | 5%+ block-holding filings (대량보유) |
 | `get_officer_network` | Cross-company officer centrality |
 | `search_flagged_companies` | Ranked anomaly screen by M-Score (paginated) |
+| `search_jfia_literature` | Search the 469-article JFIA forensic accounting catalog |
 
 Connect from Claude Code:
 ```bash
@@ -254,7 +257,7 @@ krff-shell/
 │   ├── constants.py               Threshold + flag literals
 │   ├── data_access.py             Parquet/CSV loader layer
 │   ├── db.py                      DuckDB connection factory
-│   ├── mcp_server.py              FastMCP server — 10 tools
+│   ├── mcp_server.py              FastMCP server — 11 tools
 │   ├── mcp_utils.py               JSON serialization helpers
 │   ├── models.py                  Pydantic response models
 │   ├── pipeline.py                Pipeline wrapper for CLI/API
