@@ -81,3 +81,20 @@ knowledge/
 
 # Business outreach (moved to forensic-accounting-toolkit/business/)
 outreach/
+
+# ----- leak-prevention patterns (auto-added 2026-04-24) -----
+# Block accidental commit of strategy / billing / outreach / pricing files.
+# These categories should live in the gitignored hub working directory, never
+# in a public repo. Use `git add -f` only after deliberate review.
+*_prep.md
+*_billing*
+*_invoice*
+*_outreach*
+*_strategy*
+*_positioning*
+*_pricing*
+*_buyer*
+*_pitch*
+product_direction.md
+PORTFOLIO_REFRAME*.md
+PLAN-OUTREACH*.md
